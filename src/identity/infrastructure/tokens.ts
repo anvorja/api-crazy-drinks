@@ -1,0 +1,9 @@
+export const USER_REPOSITORY = Symbol('UserRepository');
+export const REFRESH_TOKEN_REPOSITORY = Symbol('RefreshTokenRepository');
+export const PASSWORD_HASHER = Symbol('PasswordHasher');
+export const ACCESS_TOKEN_ISSUER = Symbol('AccessTokenIssuer');
+export const OPAQUE_TOKENS = Symbol('OpaqueTokens');
+export const LOGIN_FAILURE_REPOSITORY = Symbol('LoginFailureRepository');
+export const API_KEY_REPOSITORY = Symbol('ApiKeyRepository');
+export const API_USAGE_REPOSITORY = Symbol('ApiUsageRepository');
+export const API_PLAN_LIMITS = Symbol('ApiPlanLimitsPort');

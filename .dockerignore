@@ -1,0 +1,12 @@
+# Never send secrets or local artifacts to the build context
+.env
+.env.*
+!.env.example
+node_modules
+dist
+coverage
+*.tsbuildinfo
+.git
+.github
+test
+*.md
