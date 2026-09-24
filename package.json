@@ -12,6 +12,8 @@
   },
   "scripts": {
     "build": "nest build",
+    "openapi:generate": "nest build && node dist/openapi-export.js && openapi-typescript openapi/openapi.json -o openapi/api.d.ts --default-non-nullable false && prettier --write openapi/api.d.ts",
+    "openapi:check": "pnpm openapi:generate && git diff --exit-code -- openapi/",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "format:check": "prettier --check \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "nest start",
@@ -59,6 +61,7 @@
     "@types/supertest": "^7.0.0",
     "@vitest/coverage-v8": "^4.1.2",
     "drizzle-kit": "^0.31.11",
+    "openapi-typescript": "^7.13.0",
     "oxlint": "^1.58.0",
     "oxlint-tsgolint": "^7.0.2001",
     "prettier": "^3.4.2",
