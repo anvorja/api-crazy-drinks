@@ -6,6 +6,8 @@ import { DRINKS } from './drinks.js';
 /** Offline DrinkSource. Flip `up` to simulate TheCocktailDB being down. */
 export class FakeDrinkSource implements DrinkSource {
   up = true;
+  /** Simulates a bug: the next search throws an unexpected error. */
+  crashOnSearch = false;
   fetchAllCalls = 0;
 
   constructor(private readonly drinks: Drink[] = DRINKS) {}
@@ -22,6 +24,7 @@ export class FakeDrinkSource implements DrinkSource {
   }
 
   async searchByName(query: string): Promise<Drink[]> {
+    if (this.crashOnSearch) throw new TypeError('boom: something unexpected');
     this.assertUp();
     return this.drinks.filter((d) =>
       d.name.toLowerCase().includes(query.toLowerCase()),

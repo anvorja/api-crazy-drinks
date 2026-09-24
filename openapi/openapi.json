@@ -4651,6 +4651,10 @@
               ],
               "additionalProperties": false
             }
+          },
+          "requestId": {
+            "description": "Same as the X-Request-Id header: quote it when reporting a problem",
+            "type": "string"
           }
         },
         "required": [

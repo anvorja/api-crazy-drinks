@@ -61,6 +61,7 @@ El `.env` real está en `.gitignore`.
 | TheCocktailDB   | `COCKTAILDB_BASE_URL`, `COCKTAILDB_API_KEY`, `COCKTAILDB_IMAGES_BASE_URL`, `COCKTAILDB_TIMEOUT_MS`, `COCKTAILDB_RETRIES`, `COCKTAILDB_CRAWL_CONCURRENCY`, `CATALOG_TTL_MS` |
 | PostgreSQL      | `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_POOL_MAX` |
 | Autenticación   | `JWT_SECRET` (mín. 32 caracteres), `JWT_ACCESS_TTL_SECONDS`, `REFRESH_TOKEN_TTL_DAYS` |
+| Observabilidad  | `LOG_FORMAT` (`json` o `pretty`), `LOG_LEVEL`, `METRICS_ENABLED`, `METRICS_TOKEN`, `SENTRY_DSN` |
 | Protección HTTP | `RATE_LIMIT_ENABLED`, `RATE_LIMIT_STORE` (`memory` o `postgres`), `RATE_LIMIT_WINDOW_SECONDS`, `RATE_LIMIT_MAX`, `RATE_LIMIT_HEAVY_MAX`, `BODY_LIMIT_KB` |
 | Frontend (web)  | `CORS_ORIGINS`, `REFRESH_COOKIE_SAMESITE`, `REFRESH_COOKIE_SECURE`, `REFRESH_COOKIE_DOMAIN` (ver *Conectar un frontend*) |
 | Límite de login | `LOGIN_MAX_FAILURES_PER_ACCOUNT`, `LOGIN_MAX_FAILURES_PER_IP`, `LOGIN_LOCKOUT_WINDOW_SECONDS` |
@@ -299,6 +300,24 @@ docker run -d -p 8090:8090 --env-file .env api-drinks
 - **Tamaño del body:** JSON de hasta `BODY_LIMIT_KB`. Más grande responde `413 PAYLOAD_TOO_LARGE`.
 - **API keys:** además de este límite por IP, conservan su cuota diaria por plan, en los headers
   `X-RateLimit-*`.
+
+## Observabilidad
+
+- **Id de petición:** cada petición recibe un `X-Request-Id`. Si lo trae el cliente o el balanceador
+  y es válido, se conserva; si no, se genera. Vuelve en el header de respuesta y en el `requestId` de
+  todo error, así que un usuario puede reportar un problema con ese id.
+- **Logs:** con `LOG_FORMAT=json` hay una línea JSON por petición, lista para cualquier colector
+  (Loki, CloudWatch, Datadog…):
+  ```json
+  {"level":"log","context":"HTTP","message":{"msg":"request","requestId":"…","method":"GET","path":"/v1/drinks/11007","route":"/v1/drinks/:id","status":403,"durationMs":7,"userId":null}}
+  ```
+  `/health` y `/metrics` no se registran, para no llenar el log.
+- **Errores inesperados (500):** se registran con su `requestId` y, si hay `SENTRY_DSN`, se envían a
+  **Sentry**. Al cliente nunca le llega el detalle interno.
+- **Métricas Prometheus** en `GET /metrics`:
+  - `http_requests_total` y `http_request_duration_seconds`, por método, **patrón de ruta** y estado;
+  - las métricas del proceso de Node.
+  - Con `METRICS_TOKEN`, exige `Authorization: Bearer <token>`. **En producción ponlo siempre.**
 
 ## Arquitectura
 

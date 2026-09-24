@@ -111,6 +111,10 @@ export const errorResponseSchema = z
       .meta({
         description: 'Only with VALIDATION_FAILED: one entry per invalid field',
       }),
+    requestId: z.string().optional().meta({
+      description:
+        'Same as the X-Request-Id header: quote it when reporting a problem',
+    }),
   })
   .meta({
     id: 'ErrorResponse',

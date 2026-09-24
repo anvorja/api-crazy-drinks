@@ -1311,6 +1311,8 @@ export interface components {
         path: string;
         message: string;
       }[];
+      /** @description Same as the X-Request-Id header: quote it when reporting a problem */
+      requestId?: string;
     };
     ChangeRoleRequest: {
       /** @enum {string} */
