@@ -34,7 +34,7 @@ export interface Recommendation {
 }
 
 /** Masculine adjectives, to agree with "tu lado …". */
-const SIDES: Record<FlavorDimension, string> = {
+export const SIDES: Record<FlavorDimension, string> = {
   sweet: 'dulce',
   sour: 'cítrico',
   bitter: 'amargo',

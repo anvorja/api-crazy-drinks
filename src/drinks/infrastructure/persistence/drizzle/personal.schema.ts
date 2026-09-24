@@ -48,3 +48,12 @@ export const drinkReactionsTable = pgTable(
   },
   (t) => [primaryKey({ columns: [t.userId, t.drinkId] })],
 );
+
+export const tasteSharesTable = pgTable('taste_shares', {
+  userId: uuid('user_id')
+    .primaryKey()
+    .references(() => usersTable.id, { onDelete: 'cascade' }),
+  slug: text('slug').notNull().unique(),
+  displayName: text('display_name').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull(),
+});

@@ -1,5 +1,5 @@
 import { Module, OnApplicationBootstrap } from '@nestjs/common';
-import type { Clock } from '../../shared/application/ports.js';
+import type { Clock, SlugGenerator } from '../../shared/application/ports.js';
 import { ENV } from '../../shared/infrastructure/config/config.module.js';
 import type { Env } from '../../shared/infrastructure/config/env.js';
 import {
@@ -7,7 +7,10 @@ import {
   type Database,
 } from '../../shared/infrastructure/database/database.module.js';
 import { provide } from '../../shared/infrastructure/di/provide.js';
-import { CLOCK } from '../../shared/infrastructure/system.module.js';
+import {
+  CLOCK,
+  SLUG_GENERATOR,
+} from '../../shared/infrastructure/system.module.js';
 import { DrinkCatalog } from '../application/drink-catalog.js';
 import type { DrinkSource } from '../application/ports/drink-source.port.js';
 import {
@@ -52,6 +55,16 @@ import { LabController } from './http/lab.controller.js';
 import { MeDrinksController } from './http/me-drinks.controller.js';
 import { MeTasteController } from './http/me-taste.controller.js';
 import { DiscoverController } from './http/discover.controller.js';
+import { PublicTasteController } from './http/public-taste.controller.js';
+import {
+  CompareWithSharedTaste,
+  GetMyTasteShare,
+  GetSharedTaste,
+  ShareMyTaste,
+  StopSharingMyTaste,
+} from '../application/use-cases/taste-share.js';
+import type { TasteShareRepository } from '../domain/taste-share.js';
+import { DrizzleTasteShareRepository } from './persistence/drizzle/drizzle-taste-share.repository.js';
 import { CollectTasteSignals } from '../application/taste-signals.js';
 import {
   GetDiscoverDeck,
@@ -71,6 +84,7 @@ import {
   DRINK_SOURCE,
   FAVORITE_REPOSITORY,
   REACTION_REPOSITORY,
+  TASTE_SHARE_REPOSITORY,
   USER_PANTRY_REPOSITORY,
 } from './tokens.js';
 
@@ -81,6 +95,7 @@ import {
     MeDrinksController,
     MeTasteController,
     DiscoverController,
+    PublicTasteController,
     AdminCatalogController,
   ],
   providers: [
@@ -195,6 +210,45 @@ import {
       (s: CollectTasteSignals, c: DrinkCatalog) =>
         new RecommendForMyTaste(s, c),
       [CollectTasteSignals, DrinkCatalog],
+    ),
+
+    // Shareable taste and compatibility
+    provide(
+      TASTE_SHARE_REPOSITORY,
+      (db: Database) => new DrizzleTasteShareRepository(db),
+      [DRIZZLE],
+    ),
+    provide(
+      ShareMyTaste,
+      (
+        r: TasteShareRepository,
+        s: CollectTasteSignals,
+        slugs: SlugGenerator,
+        clock: Clock,
+      ) => new ShareMyTaste(r, s, slugs, clock),
+      [TASTE_SHARE_REPOSITORY, CollectTasteSignals, SLUG_GENERATOR, CLOCK],
+    ),
+    provide(
+      GetMyTasteShare,
+      (r: TasteShareRepository) => new GetMyTasteShare(r),
+      [TASTE_SHARE_REPOSITORY],
+    ),
+    provide(
+      StopSharingMyTaste,
+      (r: TasteShareRepository) => new StopSharingMyTaste(r),
+      [TASTE_SHARE_REPOSITORY],
+    ),
+    provide(
+      GetSharedTaste,
+      (r: TasteShareRepository, s: CollectTasteSignals) =>
+        new GetSharedTaste(r, s),
+      [TASTE_SHARE_REPOSITORY, CollectTasteSignals],
+    ),
+    provide(
+      CompareWithSharedTaste,
+      (r: TasteShareRepository, s: CollectTasteSignals, c: DrinkCatalog) =>
+        new CompareWithSharedTaste(r, s, c),
+      [TASTE_SHARE_REPOSITORY, CollectTasteSignals, DrinkCatalog],
     ),
 
     // Discover (swipe)
