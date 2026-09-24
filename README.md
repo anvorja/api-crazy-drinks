@@ -64,6 +64,7 @@ El `.env` real está en `.gitignore`.
 | Frontend (web)  | `CORS_ORIGINS`, `REFRESH_COOKIE_SAMESITE`, `REFRESH_COOKIE_SECURE`, `REFRESH_COOKIE_DOMAIN` (ver *Conectar un frontend*) |
 | Límite de login | `LOGIN_MAX_FAILURES_PER_ACCOUNT`, `LOGIN_MAX_FAILURES_PER_IP`, `LOGIN_LOCKOUT_WINDOW_SECONDS` |
 | Recuperar contraseña | `PASSWORD_RESET_URL` (página del frontend), `PASSWORD_RESET_TTL_MINUTES`, `PASSWORD_RESET_MAX_PER_ACCOUNT`, `PASSWORD_RESET_MAX_PER_IP`, `PASSWORD_RESET_WINDOW_SECONDS` |
+| Pagos           | `PAYMENTS_PROVIDER` (`none` o `wompi`), `SUBSCRIPTION_PERIOD_DAYS`, `PAYMENTS_REDIRECT_URL`, `WOMPI_PUBLIC_KEY`, `WOMPI_INTEGRITY_SECRET`, `WOMPI_EVENTS_SECRET`, `WOMPI_API_URL`, `WOMPI_CHECKOUT_URL`, `WOMPI_TIMEOUT_MS` |
 | Correo          | `MAIL_TRANSPORT` (`log` o `smtp`), `MAIL_FROM`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASSWORD` |
 | Admin inicial   | `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `ADMIN_NAME`, `ADMIN_BIRTH_DATE` (las cuatro o ninguna) |
 
@@ -83,7 +84,7 @@ pnpm db:studio                     # explorador visual
 | ---------- | ------ |
 | `drinks`   | `drinks`, `catalog_syncs`, `user_pantries`, `favorites`, `drink_reactions`, `taste_shares`, `cocktle_games` |
 | `identity` | `users`, `refresh_tokens`, `login_failures`, `api_keys`, `api_usage`, `password_resets` |
-| `billing`  | `plans` (sembrada por `0004_seed_plans.sql`), `subscriptions` |
+| `billing`  | `plans` (sembrada por `0004_seed_plans.sql`), `subscriptions`, `payments` |
 | `venues`   | `venues`, `venue_inventory` |
 
 ## Flujo de trabajo: Gitflow
@@ -451,9 +452,41 @@ Los valores iniciales son:
 - Pasar un límite responde `402`.
 - La cuota diaria es **por usuario**, sumando todas sus keys. Cada respuesta lleva
   `X-RateLimit-Limit`, `X-RateLimit-Remaining` y `X-RateLimit-Reset`.
-- Por ahora un admin asigna las suscripciones (`PUT /admin/users/:id/subscription`), por ejemplo
-  al confirmar una transferencia. Conectar una pasarela de pago es agregar un adaptador.
+- Las suscripciones se pagan con **Wompi** (ver *Pagos*). Un admin también puede asignarlas a mano
+  con `PUT /admin/users/:id/subscription`, por ejemplo tras confirmar una transferencia.
 - Una suscripción cancelada sigue vigente hasta el fin del periodo.
+
+### Pagos (Wompi)
+
+[Wompi](https://docs.wompi.co) es de Bancolombia, cobra en COP y tiene un sandbox gratuito con
+tarjetas de prueba. Va detrás del puerto `PaymentGateway`, así que otra pasarela (Mercado Pago,
+PayU…) sería otro adaptador.
+
+| Endpoint | Para |
+| -------- | ---- |
+| `POST /me/subscription/checkout` | `{ planId }`. Crea un pago pendiente y devuelve la URL del **Web Checkout** de Wompi, firmada con `SHA256(referencia + monto + moneda + secreto de integridad)`. |
+| `POST /webhooks/wompi` | Eventos de Wompi. Verifica el checksum SHA-256 con `WOMPI_EVENTS_SECRET` (comparación en tiempo constante). Con `transaction.updated` liquida el pago. |
+| `POST /me/payments/verify` | `{ transactionId }`. Wompi vuelve a `PAYMENTS_REDIRECT_URL?id=…` y el frontend llama esto: la API consulta la transacción y liquida el pago sin esperar al webhook. |
+| `GET /me/payments` | Historial de pagos. |
+
+- **Pago aprobado:** activa el plan por `SUBSCRIPTION_PERIOD_DAYS`. Si se paga el mismo plan mientras
+  sigue vigente, **se suma al final** del periodo; si es otro plan, el periodo empieza hoy.
+- **Idempotente:** el webhook y la verificación pueden llegar los dos, e incluso Wompi reintenta
+  eventos. Un pago solo se liquida una vez.
+- **Monto o moneda distintos al precio:** el pago queda en `error` y no activa nada.
+- **Sin pagos configurados:** con `PAYMENTS_PROVIDER=none` la API funciona igual y los endpoints de
+  pago responden `503 PAYMENTS_UNAVAILABLE`.
+
+**Probar con el sandbox:**
+1. Crea una cuenta en [comercios.wompi.co](https://comercios.wompi.co). En *Desarrolladores* están
+   las llaves de pruebas: `pub_test_…`, el secreto de integridad `test_integrity_…` y el de eventos
+   `test_events_…`.
+2. En `.env`: `PAYMENTS_PROVIDER=wompi`, las tres llaves y `WOMPI_API_URL=https://sandbox.wompi.co/v1`.
+3. Para recibir el webhook en local, expón la API, por ejemplo con
+   `cloudflared tunnel --url http://localhost:8090`, y registra `https://…/v1/webhooks/wompi` como
+   URL de eventos en Wompi. Sin túnel, `POST /me/payments/verify` confirma el pago igual.
+4. Paga con las tarjetas de prueba de la
+   [documentación de sandbox](https://docs.wompi.co/docs/colombia/datos-de-prueba-en-sandbox/).
 
 ### Explorar el catálogo
 

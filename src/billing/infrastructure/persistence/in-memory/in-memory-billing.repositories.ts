@@ -1,3 +1,4 @@
+import { Payment, PaymentRepository } from '../../../domain/payment.js';
 import {
   PlanRepository,
   SubscriptionRepository,
@@ -26,5 +27,29 @@ export class InMemorySubscriptionRepository implements SubscriptionRepository {
 
   async save(subscription: Subscription): Promise<void> {
     this.subscriptions.set(subscription.userId, { ...subscription });
+  }
+}
+
+export class InMemoryPaymentRepository implements PaymentRepository {
+  private readonly payments = new Map<string, Payment>();
+
+  async create(payment: Payment): Promise<void> {
+    this.payments.set(payment.id, { ...payment });
+  }
+
+  async findByReference(reference: string): Promise<Payment | null> {
+    return (
+      [...this.payments.values()].find((p) => p.reference === reference) ?? null
+    );
+  }
+
+  async save(payment: Payment): Promise<void> {
+    this.payments.set(payment.id, { ...payment });
+  }
+
+  async listByUser(userId: string): Promise<Payment[]> {
+    return [...this.payments.values()]
+      .filter((p) => p.userId === userId)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
   }
 }

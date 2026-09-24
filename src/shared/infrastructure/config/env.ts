@@ -84,6 +84,25 @@ const schema = z
     PASSWORD_RESET_MAX_PER_IP: z.coerce.number().int().min(1),
     PASSWORD_RESET_WINDOW_SECONDS: z.coerce.number().int().min(60),
 
+    /** none: the API runs without payments (checkout answers 503). wompi: Wompi Web Checkout. */
+    PAYMENTS_PROVIDER: z.enum(['none', 'wompi']),
+    /** Days a paid period lasts. */
+    SUBSCRIPTION_PERIOD_DAYS: z.coerce.number().int().min(1).max(366),
+    /** Frontend page the checkout returns to (Wompi appends ?id=<transactionId>). */
+    PAYMENTS_REDIRECT_URL: optional(z.url()),
+    WOMPI_PUBLIC_KEY: optional(
+      z
+        .string()
+        .regex(/^pub_(test|prod)_/, 'Starts with pub_test_ or pub_prod_'),
+    ),
+    WOMPI_INTEGRITY_SECRET: optional(
+      z.string().regex(/^(test|prod)_integrity_/),
+    ),
+    WOMPI_EVENTS_SECRET: optional(z.string().regex(/^(test|prod)_events_/)),
+    WOMPI_API_URL: optional(z.url()),
+    WOMPI_CHECKOUT_URL: optional(z.url()),
+    WOMPI_TIMEOUT_MS: z.coerce.number().int().positive(),
+
     /** log: prints emails (development). smtp: sends them. */
     MAIL_TRANSPORT: z.enum(['log', 'smtp']),
     MAIL_FROM: z.string().min(3),
@@ -99,6 +118,20 @@ const schema = z
     ADMIN_NAME: optional(z.string().min(1)),
     ADMIN_BIRTH_DATE: optional(isoDate),
   })
+  .refine(
+    (env) =>
+      env.PAYMENTS_PROVIDER !== 'wompi' ||
+      (env.WOMPI_PUBLIC_KEY &&
+        env.WOMPI_INTEGRITY_SECRET &&
+        env.WOMPI_EVENTS_SECRET &&
+        env.WOMPI_API_URL &&
+        env.WOMPI_CHECKOUT_URL &&
+        env.PAYMENTS_REDIRECT_URL),
+    {
+      message:
+        'PAYMENTS_PROVIDER=wompi requires WOMPI_* and PAYMENTS_REDIRECT_URL',
+    },
+  )
   .refine(
     (env) => env.MAIL_TRANSPORT !== 'smtp' || (env.SMTP_HOST && env.SMTP_PORT),
     {
