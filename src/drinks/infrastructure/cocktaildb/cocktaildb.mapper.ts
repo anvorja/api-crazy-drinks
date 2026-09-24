@@ -1,5 +1,6 @@
 import { Drink } from '../../domain/drink.js';
 import { CocktailDbDrinkDto } from './cocktaildb.dto.js';
+import { ingredientImage } from './images.js';
 
 const MAX_INGREDIENTS = 15;
 
@@ -8,11 +9,21 @@ const clean = (value: string | null | undefined): string | null => {
   return trimmed ? trimmed : null;
 };
 
-export function toDomainDrink(dto: CocktailDbDrinkDto): Drink {
+/** `imagesBaseUrl` enables ingredient pictures (TheCocktailDB serves them by name). */
+export function toDomainDrink(
+  dto: CocktailDbDrinkDto,
+  imagesBaseUrl?: string,
+): Drink {
   const ingredients: Drink['ingredients'] = [];
   for (let i = 1; i <= MAX_INGREDIENTS; i++) {
     const name = clean(dto[`strIngredient${i}`]);
-    if (name) ingredients.push({ name, measure: clean(dto[`strMeasure${i}`]) });
+    if (name) {
+      ingredients.push({
+        name,
+        measure: clean(dto[`strMeasure${i}`]),
+        image: imagesBaseUrl ? ingredientImage(imagesBaseUrl, name) : null,
+      });
+    }
   }
 
   return {

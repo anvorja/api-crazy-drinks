@@ -51,8 +51,8 @@ El `.env` real está en `.gitignore`.
 
 | Grupo           | Variables |
 | --------------- | --------- |
-| Servidor        | `NODE_ENV`, `PORT`, `TRUST_PROXY` (detrás de un proxy, para ver la IP real), `OPENAPI_ENABLED` |
-| TheCocktailDB   | `COCKTAILDB_BASE_URL`, `COCKTAILDB_API_KEY`, `COCKTAILDB_TIMEOUT_MS`, `COCKTAILDB_RETRIES`, `COCKTAILDB_CRAWL_CONCURRENCY`, `CATALOG_TTL_MS` |
+| Servidor        | `NODE_ENV`, `PORT`, `TRUST_PROXY` (detrás de un proxy, para ver la IP real), `OPENAPI_ENABLED`, `CACHE_MAX_AGE_SECONDS` |
+| TheCocktailDB   | `COCKTAILDB_BASE_URL`, `COCKTAILDB_API_KEY`, `COCKTAILDB_IMAGES_BASE_URL`, `COCKTAILDB_TIMEOUT_MS`, `COCKTAILDB_RETRIES`, `COCKTAILDB_CRAWL_CONCURRENCY`, `CATALOG_TTL_MS` |
 | PostgreSQL      | `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_POOL_MAX` |
 | Autenticación   | `JWT_SECRET` (mín. 32 caracteres), `JWT_ACCESS_TTL_SECONDS`, `REFRESH_TOKEN_TTL_DAYS` |
 | Límite de login | `LOGIN_MAX_FAILURES_PER_ACCOUNT`, `LOGIN_MAX_FAILURES_PER_IP`, `LOGIN_LOCKOUT_WINDOW_SECONDS` |
@@ -289,6 +289,26 @@ Los valores iniciales son:
 - Por ahora un admin asigna las suscripciones (`PUT /admin/users/:id/subscription`), por ejemplo
   al confirmar una transferencia. Conectar una pasarela de pago es agregar un adaptador.
 - Una suscripción cancelada sigue vigente hasta el fin del periodo.
+
+### Explorar el catálogo
+
+Pensado para que un frontend arme su pantalla principal:
+
+| Endpoint | Para |
+| -------- | ---- |
+| `GET /drinks` | Grilla con **scroll infinito**. Combina filtros: `q`, `category`, `glass`, `alcoholic`, `iba` e `ingredients` (debe tenerlos todos; entiende español: `ron,limón`). Se pagina por cursor: se envía el `nextCursor` recibido como `cursor`. |
+| `GET /drinks/facets` | Opciones para los filtros (categorías, vasos e ingredientes más usados), con cuántas bebidas tiene cada una. |
+| `GET /drinks/suggest?q=` | **Autocompletado** de bebidas e ingredientes mientras se escribe, tolerante a errores ("margarta" → Margarita). Usa similitud de trigramas sobre el catálogo en memoria. |
+
+- **Cada bebida trae:**
+  - `images.small|medium|large` para listas rápidas;
+  - `categoryEs`, `glassEs` e `ingredients[].nameEs` en español (null si aún no hay traducción);
+  - `ingredients[].image` con la foto del ingrediente.
+- **Caché:** las lecturas deterministas del catálogo responden `Cache-Control: private, max-age=CACHE_MAX_AGE_SECONDS`
+  con `Vary: Authorization, X-API-Key`, porque la respuesta depende de quién pregunta (regla de edad).
+  Express agrega `ETag`, así que revalidar cuesta un `304`. Los endpoints con azar (`random`, moods) no se cachean.
+- **Tras actualizar:** las bebidas guardadas antes de esta versión no tienen fotos de ingredientes.
+  Un `POST /admin/catalog/sync` las completa.
 
 ### Tu ADN de sabor
 

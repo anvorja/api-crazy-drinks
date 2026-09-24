@@ -28,9 +28,12 @@ const schema = z
     /** Behind a reverse proxy, trust X-Forwarded-For so login throttling sees the real IP. */
     TRUST_PROXY: booleanString,
     OPENAPI_ENABLED: booleanString,
+    /** max-age of Cache-Control on catalog responses (0 disables caching). */
+    CACHE_MAX_AGE_SECONDS: z.coerce.number().int().min(0),
 
     COCKTAILDB_BASE_URL: z.url(),
     COCKTAILDB_API_KEY: z.string().min(1),
+    COCKTAILDB_IMAGES_BASE_URL: z.url(),
     COCKTAILDB_TIMEOUT_MS: z.coerce.number().int().positive(),
     COCKTAILDB_RETRIES: z.coerce.number().int().min(0).max(5),
     COCKTAILDB_CRAWL_CONCURRENCY: z.coerce.number().int().min(1).max(20),
