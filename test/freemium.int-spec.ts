@@ -7,6 +7,7 @@ import {
 import { DrizzleDrinkRepository } from '../src/drinks/infrastructure/persistence/drizzle/drizzle-drink.repository.js';
 import {
   DrizzleFavoriteRepository,
+  DrizzleReactionRepository,
   DrizzleUserPantryRepository,
 } from '../src/drinks/infrastructure/persistence/drizzle/drizzle-personal.repositories.js';
 import {
@@ -142,5 +143,29 @@ describe('freemium repositories (Postgres)', () => {
       expect(await favorites.list(user.id)).toHaveLength(1);
       await favorites.remove(user.id, drinkId);
       expect(await favorites.list(user.id)).toEqual([]);
+    }));
+
+  it('stores one reaction per user and drink', () =>
+    inRollbackTransaction(pool, async (db) => {
+      const user = newUser();
+      await new DrizzleUserRepository(db).create(user);
+      const drinkId = `test-${randomUUID()}`;
+      await new DrizzleDrinkRepository(db).saveMany([
+        { ...MOJITO, id: drinkId },
+      ]);
+
+      const reactions = new DrizzleReactionRepository(db);
+      const base = {
+        userId: user.id,
+        drinkId,
+        createdAt: new Date('2026-01-01T00:00:00Z'),
+      };
+      await reactions.save({ ...base, kind: 'like' });
+      await reactions.save({ ...base, kind: 'dislike' });
+      expect(await reactions.listByUser(user.id)).toEqual([
+        { ...base, kind: 'dislike' },
+      ]);
+      await reactions.remove(user.id, drinkId);
+      expect(await reactions.listByUser(user.id)).toEqual([]);
     }));
 });

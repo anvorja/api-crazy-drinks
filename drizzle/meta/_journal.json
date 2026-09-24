@@ -36,6 +36,13 @@
       "when": 1790265712382,
       "tag": "0004_seed_plans",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1790276020413,
+      "tag": "0005_drink_reactions",
+      "breakpoints": true
     }
   ]
 }

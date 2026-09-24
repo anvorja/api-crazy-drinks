@@ -72,7 +72,7 @@ pnpm db:studio                     # explorador visual
 
 | Contexto   | Tablas |
 | ---------- | ------ |
-| `drinks`   | `drinks`, `catalog_syncs`, `user_pantries`, `favorites` |
+| `drinks`   | `drinks`, `catalog_syncs`, `user_pantries`, `favorites`, `drink_reactions` |
 | `identity` | `users`, `refresh_tokens`, `login_failures`, `api_keys`, `api_usage` |
 | `billing`  | `plans` (sembrada por `0004_seed_plans.sql`), `subscriptions` |
 | `venues`   | `venues`, `venue_inventory` |
@@ -310,15 +310,32 @@ Pensado para que un frontend arme su pantalla principal:
 - **Tras actualizar:** las bebidas guardadas antes de esta versión no tienen fotos de ingredientes.
   Un `POST /admin/catalog/sync` las completa.
 
+### Swipe (descubrir)
+
+Descubrir bebidas deslizando tarjetas, estilo Tinder. Requiere una sesión.
+
+| Endpoint | Para |
+| -------- | ---- |
+| `GET /discover/deck?count=10` | Tarjetas que el usuario aún no ha visto. |
+| `PUT /discover/{drinkId}` | Reaccionar: `like`, `dislike` o `superlike`. El superlike además la guarda en favoritos. Volver a reaccionar reemplaza la reacción anterior. |
+| `DELETE /discover/{drinkId}` | Deshacer: la bebida puede volver a salir en el mazo. |
+| `GET /discover/stats` | Conteo de likes, dislikes y superlikes. |
+
+- **Cómo se arma el mazo:** cuando ya hay gusto, ~70 % sale elegido al azar entre las 30 bebidas más
+  afines y ~30 % es exploración, para que el perfil siga aprendiendo y no se encierre en una burbuja.
+- **Respuesta inmediata:** cada reacción devuelve el ADN de sabor actualizado, así el frontend puede
+  mostrarlo cambiar en vivo.
+
 ### Tu ADN de sabor
 
-- **`GET /me/taste`** (cualquier usuario autenticado): promedia el ADN de sabor de tus favoritos y
+- **`GET /me/taste`** (cualquier usuario autenticado): aprende de tus favoritos, likes y superlikes;
+  cada dislike resta medio punto de su ADN. Con eso
   devuelve tu perfil de 0 a 100, tus rasgos dominantes, tu personalidad, la intensidad que sueles
   elegir y los ingredientes que más repites.
-  - La confianza sube con la cantidad de favoritos: `low` con 1–2, `medium` con 3–7 y `high` con 8 o más.
+  - La confianza sube con la cantidad de señales (favoritos y swipes): `low` con 1–2, `medium` con 3–7 y `high` con 8 o más.
   - Sin favoritos responde `taste: null` con una pista de cómo empezar.
-- **`GET /me/taste/recommendations`** (rol `premium` o `admin`): bebidas que aún no están en tus
-  favoritos, ordenadas por afinidad (0–100) y cada una con sus razones.
+- **`GET /me/taste/recommendations`** (rol `premium` o `admin`): bebidas que aún no has visto (ni en
+  favoritos ni en swipes), ordenadas por afinidad (0–100) y cada una con sus razones.
   - La afinidad combina un 70 % de similitud entre sabores (coseno entre tu perfil y el ADN de la
     bebida) y un 30 % de ingredientes que ya están en tus favoritos.
   - Ejemplos de razones: *"Coincide con tu lado dulce, cítrico e intenso"*,

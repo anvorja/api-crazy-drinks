@@ -72,7 +72,7 @@ export const tasteRecommendationsResponseSchema = z
   })
   .meta({ id: 'TasteRecommendations' });
 
-const toTasteResponse = (
+export const toTasteResponse = (
   t: TasteProfile,
 ): z.infer<typeof tasteProfileSchema> => ({
   basedOn: t.basedOn,
@@ -90,7 +90,7 @@ export const toMyTasteResponse = (
   taste: taste ? toTasteResponse(taste) : null,
   hint: taste
     ? null
-    : 'Add favorites with PUT /me/favorites/{drinkId} to build your taste profile.',
+    : 'Swipe drinks at /discover/deck or add favorites with PUT /me/favorites/{drinkId} to build your taste profile.',
 });
 
 export const toTasteRecommendationsResponse = (result: {

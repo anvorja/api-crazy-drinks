@@ -14,6 +14,7 @@ import {
   cleanPantryIngredients,
 } from '../../domain/personal.js';
 import { DrinkCatalog } from '../drink-catalog.js';
+import { CollectTasteSignals } from '../taste-signals.js';
 import { GetDrink } from './drink-queries.js';
 import { PantryQuery, PantrySuggestion, SuggestFromPantry } from './lab.js';
 
@@ -117,23 +118,23 @@ export class ListFavorites {
   }
 }
 
-/** "Tu ADN de sabor": the user's taste, learned from their favorites. Null without favorites. */
+/** "Tu ADN de sabor": the user's taste, learned from favorites and swipes. Null without likes. */
 export class GetMyTasteProfile {
-  constructor(private readonly favorites: ListFavorites) {}
+  constructor(private readonly signals: CollectTasteSignals) {}
 
   async execute(
     userId: string,
     visibility: DrinkVisibility,
   ): Promise<TasteProfile | null> {
-    const favorites = await this.favorites.execute(userId, visibility);
-    return buildTasteProfile(favorites.map((f) => f.drink));
+    const { liked, disliked } = await this.signals.execute(userId, visibility);
+    return buildTasteProfile(liked, disliked);
   }
 }
 
-/** Drinks the user hasn't favorited yet, closest to their taste, with the reasons. */
+/** Drinks the user hasn't seen yet, closest to their taste, with the reasons. */
 export class RecommendForMyTaste {
   constructor(
-    private readonly favorites: ListFavorites,
+    private readonly signals: CollectTasteSignals,
     private readonly catalog: DrinkCatalog,
   ) {}
 
@@ -142,13 +143,14 @@ export class RecommendForMyTaste {
     limit: number,
     visibility: DrinkVisibility,
   ): Promise<{ taste: TasteProfile; recommendations: Recommendation[] }> {
-    const favorites = (await this.favorites.execute(userId, visibility)).map(
-      (f) => f.drink,
+    const { liked, disliked, seenIds } = await this.signals.execute(
+      userId,
+      visibility,
     );
-    const taste = buildTasteProfile(favorites);
+    const taste = buildTasteProfile(liked, disliked);
     if (!taste) {
       throw new ValidationError(
-        'Add at least one favorite drink to get recommendations',
+        'Like or favorite at least one drink to get recommendations',
       );
     }
     const candidates = (await this.catalog.all()).filter((d) =>
@@ -156,7 +158,13 @@ export class RecommendForMyTaste {
     );
     return {
       taste,
-      recommendations: recommendForTaste(taste, favorites, candidates, limit),
+      recommendations: recommendForTaste(
+        taste,
+        liked,
+        candidates,
+        limit,
+        seenIds,
+      ),
     };
   }
 }
