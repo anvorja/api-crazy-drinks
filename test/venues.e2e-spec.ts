@@ -29,7 +29,7 @@ describe('venues (e2e)', () => {
   it('regular users cannot open venues', async () => {
     const { accessToken } = await signUp(server());
     await http()
-      .post('/venues')
+      .post('/v1/venues')
       .set(bearer(accessToken))
       .send(venueBody)
       .expect(403);
@@ -38,14 +38,14 @@ describe('venues (e2e)', () => {
   it('builds a priced menu from the inventory', async () => {
     const token = await venueOwner('pro');
     const { body: venue } = await http()
-      .post('/venues')
+      .post('/v1/venues')
       .set(bearer(token))
       .send(venueBody)
       .expect(201);
     expect(venue.currency).toBe('COP');
 
     await http()
-      .put(`/venues/${venue.id}/inventory`)
+      .put(`/v1/venues/${venue.id}/inventory`)
       .set(bearer(token))
       .send({
         items: [
@@ -57,7 +57,7 @@ describe('venues (e2e)', () => {
       .expect(200);
 
     const { body: menu } = await http()
-      .get(`/venues/${venue.id}/menu`)
+      .get(`/v1/venues/${venue.id}/menu`)
       .set(bearer(token))
       .expect(200);
 
@@ -77,17 +77,17 @@ describe('venues (e2e)', () => {
     const owner = await venueOwner();
     const intruder = await venueOwner();
     const { body: venue } = await http()
-      .post('/venues')
+      .post('/v1/venues')
       .set(bearer(owner))
       .send(venueBody)
       .expect(201);
 
     await http()
-      .get(`/venues/${venue.id}/menu`)
+      .get(`/v1/venues/${venue.id}/menu`)
       .set(bearer(intruder))
       .expect(403);
     const mine = await http()
-      .get('/venues/mine')
+      .get('/v1/venues/mine')
       .set(bearer(intruder))
       .expect(200);
     expect(mine.body).toEqual([]);
@@ -96,13 +96,13 @@ describe('venues (e2e)', () => {
   it('validates inventory', async () => {
     const token = await venueOwner();
     const { body: venue } = await http()
-      .post('/venues')
+      .post('/v1/venues')
       .set(bearer(token))
       .send(venueBody)
       .expect(201);
 
     await http()
-      .put(`/venues/${venue.id}/inventory`)
+      .put(`/v1/venues/${venue.id}/inventory`)
       .set(bearer(token))
       .send({ items: [{ ingredient: 'Limón' }, { ingredient: 'limon' }] })
       .expect(400);
@@ -111,11 +111,15 @@ describe('venues (e2e)', () => {
   it('free plans get the menu without prices and limited venues/inventory', async () => {
     const token = await venueOwner();
     const { body: venue } = await http()
-      .post('/venues')
+      .post('/v1/venues')
       .set(bearer(token))
       .send(venueBody)
       .expect(201);
-    await http().post('/venues').set(bearer(token)).send(venueBody).expect(402);
+    await http()
+      .post('/v1/venues')
+      .set(bearer(token))
+      .send(venueBody)
+      .expect(402);
 
     const items = [
       'Light rum',
@@ -126,18 +130,18 @@ describe('venues (e2e)', () => {
       'Tequila',
     ].map((ingredient) => ({ ingredient }));
     await http()
-      .put(`/venues/${venue.id}/inventory`)
+      .put(`/v1/venues/${venue.id}/inventory`)
       .set(bearer(token))
       .send({ items })
       .expect(402);
     await http()
-      .put(`/venues/${venue.id}/inventory`)
+      .put(`/v1/venues/${venue.id}/inventory`)
       .set(bearer(token))
       .send({ items: items.slice(0, 3) })
       .expect(200);
 
     const { body: menu } = await http()
-      .get(`/venues/${venue.id}/menu`)
+      .get(`/v1/venues/${venue.id}/menu`)
       .set(bearer(token))
       .expect(200);
     expect(menu.pricing.included).toBe(false);
@@ -150,12 +154,12 @@ describe('venues (e2e)', () => {
   it('prices garnishes with costPerServing and serves the menu to API keys', async () => {
     const token = await venueOwner('pro');
     const { body: venue } = await http()
-      .post('/venues')
+      .post('/v1/venues')
       .set(bearer(token))
       .send(venueBody)
       .expect(201);
     await http()
-      .put(`/venues/${venue.id}/inventory`)
+      .put(`/v1/venues/${venue.id}/inventory`)
       .set(bearer(token))
       .send({
         items: [
@@ -168,12 +172,12 @@ describe('venues (e2e)', () => {
       .expect(200);
 
     const { body: key } = await http()
-      .post('/me/api-keys')
+      .post('/v1/me/api-keys')
       .set(bearer(token))
       .send({ name: 'POS' })
       .expect(201);
     const { body: menu } = await http()
-      .get(`/venues/${venue.id}/menu`)
+      .get(`/v1/venues/${venue.id}/menu`)
       .set('X-API-Key', key.key)
       .expect(200);
     expect(menu.items[0]).toMatchObject({
@@ -182,7 +186,7 @@ describe('venues (e2e)', () => {
     });
 
     await http()
-      .put(`/venues/${venue.id}/inventory`)
+      .put(`/v1/venues/${venue.id}/inventory`)
       .set('X-API-Key', key.key)
       .send({ items: [] })
       .expect(403);

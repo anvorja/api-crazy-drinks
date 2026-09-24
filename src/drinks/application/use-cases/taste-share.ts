@@ -35,6 +35,7 @@ export class ShareMyTaste {
     if (!buildTasteProfile(liked, disliked)) {
       throw new ValidationError(
         'Swipe or favorite some drinks first: there is no taste to share yet',
+        'NO_TASTE_YET',
       );
     }
     const existing = await this.shares.findByUser(userId);
@@ -78,7 +79,7 @@ export class GetSharedTaste {
     slug: string,
   ): Promise<{ share: TasteShare; taste: TasteProfile | null }> {
     const share = await this.shares.findBySlug(slug);
-    if (!share) throw new NotFoundError(NOT_SHARED);
+    if (!share) throw new NotFoundError(NOT_SHARED, 'TASTE_LINK_NOT_FOUND');
     const { liked, disliked } = await this.signals.execute(
       share.userId,
       OWNER_VIEW,
@@ -105,9 +106,12 @@ export class CompareWithSharedTaste {
     compatibility: Compatibility;
   }> {
     const share = await this.shares.findBySlug(slug);
-    if (!share) throw new NotFoundError(NOT_SHARED);
+    if (!share) throw new NotFoundError(NOT_SHARED, 'TASTE_LINK_NOT_FOUND');
     if (share.userId === userId)
-      throw new ValidationError('That link is yours: share it with a friend');
+      throw new ValidationError(
+        'That link is yours: share it with a friend',
+        'OWN_TASTE_LINK',
+      );
 
     const [mine, theirs] = await Promise.all([
       this.signals.execute(userId, visibility),
@@ -118,10 +122,12 @@ export class CompareWithSharedTaste {
     if (!you)
       throw new ValidationError(
         'Swipe or favorite some drinks first to compare',
+        'NO_TASTE_YET',
       );
     if (!them)
       throw new ValidationError(
         `${share.displayName} has no taste profile yet`,
+        'NO_TASTE_YET',
       );
 
     // Bridges must be visible to the viewer (no alcohol for minors) and new to both.

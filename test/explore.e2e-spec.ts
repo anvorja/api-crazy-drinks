@@ -17,25 +17,25 @@ describe('explore the catalog (e2e)', () => {
   it('paginates with an opaque cursor', async () => {
     const { accessToken } = await signUp(t.app.getHttpServer());
     const first = await http()
-      .get('/drinks?limit=4')
+      .get('/v1/drinks?limit=4')
       .set(bearer(accessToken))
       .expect(200);
     expect(first.body.items).toHaveLength(4);
     expect(first.body.total).toBe(6);
 
     const second = await http()
-      .get(`/drinks?limit=4&cursor=${first.body.nextCursor}`)
+      .get(`/v1/drinks?limit=4&cursor=${first.body.nextCursor}`)
       .set(bearer(accessToken))
       .expect(200);
     expect(second.body.items).toHaveLength(2);
     expect(second.body.nextCursor).toBeNull();
 
-    await http().get('/drinks?cursor=garbage').expect(400);
+    await http().get('/v1/drinks?cursor=garbage').expect(400);
   });
 
   it('returns cards ready to render, in Spanish too', async () => {
     const { body } = await http()
-      .get('/drinks?ingredients=limón,azúcar')
+      .get('/v1/drinks?ingredients=limón,azúcar')
       .expect(200);
     // Anonymous: alcohol-free only.
     expect(body.items.map((d: { name: string }) => d.name)).toEqual([
@@ -55,7 +55,7 @@ describe('explore the catalog (e2e)', () => {
   it('serves facets and typo-tolerant suggestions', async () => {
     const { accessToken } = await signUp(t.app.getHttpServer());
     const facets = await http()
-      .get('/drinks/facets')
+      .get('/v1/drinks/facets')
       .set(bearer(accessToken))
       .expect(200);
     expect(facets.body.total).toBe(6);
@@ -65,7 +65,7 @@ describe('explore the catalog (e2e)', () => {
     });
 
     const suggest = await http()
-      .get('/drinks/suggest?q=margarta')
+      .get('/v1/drinks/suggest?q=margarta')
       .set(bearer(accessToken))
       .expect(200);
     expect(suggest.body[0]).toMatchObject({
@@ -76,12 +76,12 @@ describe('explore the catalog (e2e)', () => {
   });
 
   it('lets clients cache catalog reads, per credentials', async () => {
-    const res = await http().get('/drinks/facets').expect(200);
+    const res = await http().get('/v1/drinks/facets').expect(200);
     expect(res.headers['cache-control']).toBe('private, max-age=60');
     expect(res.headers['vary']).toContain('Authorization');
     expect(res.headers['etag']).toBeDefined();
 
-    const random = await http().get('/drinks/random').expect(200);
+    const random = await http().get('/v1/drinks/random').expect(200);
     expect(random.headers['cache-control']).toBeUndefined();
   });
 });

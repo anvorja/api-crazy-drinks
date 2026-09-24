@@ -8,6 +8,7 @@ import {
   ApiBearerAuth,
 } from '@nestjs/swagger';
 import { z, ZodType } from 'zod';
+import { ERROR_CODES } from '../../domain/errors.js';
 
 /**
  * zod schemas (the DTOs) are the single source of truth: they validate requests and,
@@ -92,11 +93,24 @@ export const ApiResponseFrom = (
 
 export const errorResponseSchema = z
   .object({
-    statusCode: z.number().int().meta({ example: 400 }),
-    message: z
-      .union([z.string(), z.array(z.string())])
-      .meta({ example: 'Invalid email address' }),
-    error: z.string().meta({ example: 'ValidationError' }),
+    statusCode: z.number().int().meta({ example: 403 }),
+    code: z.enum(ERROR_CODES).meta({
+      description:
+        'Stable error code: switch on it and show your own (translated) text',
+      example: 'AGE_RESTRICTED',
+    }),
+    message: z.string().meta({
+      description: 'Human hint in English; may change, do not parse it',
+      example:
+        'This drink contains alcohol: sign in with a verified adult account to see it',
+    }),
+    error: z.string().meta({ example: 'ForbiddenError' }),
+    details: z
+      .array(z.object({ path: z.string(), message: z.string() }))
+      .optional()
+      .meta({
+        description: 'Only with VALIDATION_FAILED: one entry per invalid field',
+      }),
   })
   .meta({
     id: 'ErrorResponse',

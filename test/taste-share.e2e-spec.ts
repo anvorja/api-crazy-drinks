@@ -19,7 +19,7 @@ describe('shareable taste and compatibility (e2e)', () => {
     const { accessToken } = await signUp(server());
     for (const id of ids) {
       await http()
-        .put(`/discover/${id}`)
+        .put(`/v1/discover/${id}`)
         .set(bearer(accessToken))
         .send({ reaction: 'like' })
         .expect(200);
@@ -30,7 +30,7 @@ describe('shareable taste and compatibility (e2e)', () => {
   it('cannot share an empty taste', async () => {
     const { accessToken } = await signUp(server());
     await http()
-      .put('/me/taste/share')
+      .put('/v1/me/taste/share')
       .set(bearer(accessToken))
       .send({ displayName: 'Ana' })
       .expect(400);
@@ -39,21 +39,21 @@ describe('shareable taste and compatibility (e2e)', () => {
   it('shares a public profile and card that anyone can open', async () => {
     const token = await userWhoLikes('1', '2');
     const { body: share } = await http()
-      .put('/me/taste/share')
+      .put('/v1/me/taste/share')
       .set(bearer(token))
       .send({ displayName: 'Ana <3' })
       .expect(200);
-    expect(share.links.cardPng).toBe(`/taste/${share.slug}/card.png`);
+    expect(share.links.cardPng).toBe(`/v1/taste/${share.slug}/card.png`);
 
     // Renaming keeps the same link.
     const renamed = await http()
-      .put('/me/taste/share')
+      .put('/v1/me/taste/share')
       .set(bearer(token))
       .send({ displayName: 'Ana' })
       .expect(200);
     expect(renamed.body.slug).toBe(share.slug);
 
-    const profile = await http().get(`/taste/${share.slug}`).expect(200);
+    const profile = await http().get(`/v1/taste/${share.slug}`).expect(200);
     expect(profile.body).toMatchObject({
       displayName: 'Ana',
       taste: { basedOn: 2 },
@@ -61,7 +61,7 @@ describe('shareable taste and compatibility (e2e)', () => {
     expect(JSON.stringify(profile.body)).not.toMatch(/@test\.local|userId/);
 
     const svg = await http()
-      .get(`/taste/${share.slug}/card.svg`)
+      .get(`/v1/taste/${share.slug}/card.svg`)
       .buffer(true)
       .parse((res, done) => {
         let text = '';
@@ -73,7 +73,7 @@ describe('shareable taste and compatibility (e2e)', () => {
     expect(svg.body).toContain('ADN DE SABOR');
 
     const png = await http()
-      .get(`/taste/${share.slug}/card.png`)
+      .get(`/v1/taste/${share.slug}/card.png`)
       .buffer(true)
       .expect(200);
     expect(png.headers['content-type']).toBe('image/png');
@@ -83,14 +83,14 @@ describe('shareable taste and compatibility (e2e)', () => {
   it('compares with a friend and suggests bridge drinks', async () => {
     const friend = await userWhoLikes('1', '2');
     const { body: share } = await http()
-      .put('/me/taste/share')
+      .put('/v1/me/taste/share')
       .set(bearer(friend))
       .send({ displayName: 'Friend' })
       .expect(200);
 
     const me = await userWhoLikes('3');
     const { body } = await http()
-      .get(`/me/taste/compatibility/${share.slug}`)
+      .get(`/v1/me/taste/compatibility/${share.slug}`)
       .set(bearer(me))
       .expect(200);
     expect(body.score).toBeGreaterThan(50);
@@ -101,7 +101,7 @@ describe('shareable taste and compatibility (e2e)', () => {
     );
 
     await http()
-      .get(`/me/taste/compatibility/${share.slug}`)
+      .get(`/v1/me/taste/compatibility/${share.slug}`)
       .set(bearer(friend))
       .expect(400);
   });
@@ -109,17 +109,17 @@ describe('shareable taste and compatibility (e2e)', () => {
   it('turning sharing off kills the link', async () => {
     const token = await userWhoLikes('2');
     const { body: share } = await http()
-      .put('/me/taste/share')
+      .put('/v1/me/taste/share')
       .set(bearer(token))
       .send({ displayName: 'Temp' })
       .expect(200);
-    await http().delete('/me/taste/share').set(bearer(token)).expect(204);
-    await http().get(`/taste/${share.slug}`).expect(404);
+    await http().delete('/v1/me/taste/share').set(bearer(token)).expect(204);
+    await http().get(`/v1/taste/${share.slug}`).expect(404);
     const mine = await http()
-      .get('/me/taste/share')
+      .get('/v1/me/taste/share')
       .set(bearer(token))
       .expect(200);
     expect(mine.body).toEqual({ share: null });
-    await http().get('/taste/bad!slug').expect(400);
+    await http().get('/v1/taste/bad!slug').expect(400);
   });
 });

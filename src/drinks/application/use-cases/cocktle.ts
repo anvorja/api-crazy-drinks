@@ -49,6 +49,7 @@ class CocktlePuzzle {
     if (mode === 'classic' && !visibility.includeAlcoholic) {
       throw new ForbiddenError(
         'Classic mode includes alcohol: play mode "zero" instead',
+        'AGE_RESTRICTED',
       );
     }
     const day = utcDay(this.clock.now());
@@ -134,7 +135,7 @@ export class GuessCocktle {
     const { day, answer, byId } = await this.puzzle.load(mode, visibility);
     const guess = byId.get(drinkId);
     if (!guess || !isVisible(guess, visibility))
-      throw new NotFoundError(`Drink ${drinkId} not found`);
+      throw new NotFoundError(`Drink ${drinkId} not found`, 'DRINK_NOT_FOUND');
 
     const current = (await this.games.find(userId, day, mode)) ?? {
       userId,

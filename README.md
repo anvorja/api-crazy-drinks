@@ -21,6 +21,10 @@ La referencia de la API es **OpenAPI 3**, generada desde el código con `@nestjs
 | Swagger UI (probar)   | http://localhost:8090/docs                |
 | Documento OpenAPI     | http://localhost:8090/docs/openapi.json   |
 
+**Todas las rutas van bajo `/v1`** (por ejemplo `GET /v1/drinks`), salvo `/health`, `/health/ready` y
+`/`, que no llevan versión porque las usan las sondas de infraestructura. En este README las rutas
+se escriben sin el prefijo para abreviar.
+
 Cada endpoint trae su resumen, descripción, parámetros, body, respuestas (incluidos los errores),
 esquemas con nombre (`Drink`, `Session`, `VenueMenu`, `ErrorResponse`…) y el esquema de seguridad
 que acepta. `OPENAPI_ENABLED=false` la apaga, por ejemplo en producción.
@@ -57,6 +61,7 @@ El `.env` real está en `.gitignore`.
 | TheCocktailDB   | `COCKTAILDB_BASE_URL`, `COCKTAILDB_API_KEY`, `COCKTAILDB_IMAGES_BASE_URL`, `COCKTAILDB_TIMEOUT_MS`, `COCKTAILDB_RETRIES`, `COCKTAILDB_CRAWL_CONCURRENCY`, `CATALOG_TTL_MS` |
 | PostgreSQL      | `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_POOL_MAX` |
 | Autenticación   | `JWT_SECRET` (mín. 32 caracteres), `JWT_ACCESS_TTL_SECONDS`, `REFRESH_TOKEN_TTL_DAYS` |
+| Frontend (web)  | `CORS_ORIGINS`, `REFRESH_COOKIE_SAMESITE`, `REFRESH_COOKIE_SECURE`, `REFRESH_COOKIE_DOMAIN` (ver *Conectar un frontend*) |
 | Límite de login | `LOGIN_MAX_FAILURES_PER_ACCOUNT`, `LOGIN_MAX_FAILURES_PER_IP`, `LOGIN_LOCKOUT_WINDOW_SECONDS` |
 | Admin inicial   | `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `ADMIN_NAME`, `ADMIN_BIRTH_DATE` (las cuatro o ninguna) |
 
@@ -289,8 +294,8 @@ src/<contexto>/
 - Los contextos se hablan por puertos. Por ejemplo, `venues` e `identity` definen cada uno su puerto
   de límites del plan, y un adaptador en su `*.module.ts` lo implementa sobre `GetPlanLimits` de
   `billing`.
-- Los errores de dominio se traducen a HTTP en un único filtro,
-  `shared/infrastructure/http/domain-error.filter.ts`:
+- Todos los errores salen por un único filtro, `shared/infrastructure/http/api-exception.filter.ts`
+  (ver *Errores*). Los errores de dominio se traducen así:
 
   | Error | HTTP |
   | ----- | ---- |
@@ -302,6 +307,70 @@ src/<contexto>/
   | `ConflictError` | 409 |
   | `RateLimitedError` | 429, con `Retry-After` |
   | `UnavailableError` | 503 |
+
+## Conectar un frontend
+
+La API y el frontend viven en dominios distintos. Esto es lo que el frontend necesita saber.
+
+### Errores
+
+Todos los errores tienen la misma forma:
+
+```json
+{ "statusCode": 403, "code": "AGE_RESTRICTED", "message": "This drink contains alcohol…", "error": "ForbiddenError" }
+```
+
+- **`code` es el contrato.** Es estable, así que el frontend decide qué hacer y qué texto mostrar
+  (en español) según `code`. `message` es solo una pista en inglés y puede cambiar.
+- **`details`** aparece solo con `VALIDATION_FAILED` y trae una entrada `{ path, message }` por cada
+  campo inválido, para marcarlos en el formulario.
+- **Lista completa de códigos:** está en `ERROR_CODES` (`src/shared/domain/errors.ts`) y en el
+  esquema `ErrorResponse` de OpenAPI. Algunos: `AUTH_REQUIRED`, `INVALID_CREDENTIALS`,
+  `INVALID_ACCESS_TOKEN`, `AGE_RESTRICTED`, `ROLE_REQUIRED`, `PLAN_LIMIT`, `LOGIN_LOCKED`,
+  `EMAIL_TAKEN`, `WEAK_PASSWORD`, `DRINK_NOT_FOUND`, `NO_TASTE_YET`, `GAME_OVER`, `ROUTE_NOT_FOUND`.
+- **Errores inesperados:** responden `500 INTERNAL_ERROR` con un mensaje genérico. El detalle queda
+  en el log del servidor y nunca se expone.
+
+### Sesión en el navegador
+
+- **Access token:** es un JWT corto que el frontend guarda **en memoria**, no en `localStorage`, y
+  envía como `Authorization: Bearer …`.
+- **Refresh token:** va en una **cookie `httpOnly`**. JavaScript no puede leerla, así que un XSS no
+  puede robarla. La cookie está restringida a la ruta `/v1/auth`, así que no viaja en ninguna otra
+  petición.
+- **Recargar la página:** el frontend llama a `POST /v1/auth/refresh` con `credentials: 'include'`
+  y sin body. Recibe un access token nuevo y la cookie rota.
+- **Defensa contra CSRF:** si el refresh llega por cookie, la API exige que el header `Origin` esté
+  en `CORS_ORIGINS`. Si no, responde `401 ORIGIN_NOT_ALLOWED`.
+- **Clientes sin navegador** (apps nativas, scripts): envían `refreshTokenIn: "body"` en el login y
+  reciben el refresh token en el JSON, como antes.
+
+```js
+// login
+await fetch(`${API}/v1/auth/login`, {
+  method: 'POST', credentials: 'include',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ email, password }),
+});
+// al cargar la app o cuando el access token vence
+const session = await fetch(`${API}/v1/auth/refresh`, { method: 'POST', credentials: 'include' });
+```
+
+### CORS y la cookie según dónde viva el frontend
+
+| Escenario | Ejemplo | Configuración |
+| --------- | ------- | ------------- |
+| Desarrollo local | `http://localhost:5173` → `http://localhost:8090` | `SAMESITE=lax`, `SECURE=false` |
+| **Subdominios del mismo dominio** (recomendado) | `app.midominio.com` → `api.midominio.com` | `SAMESITE=lax`, `SECURE=true`, `DOMAIN` vacío o `.midominio.com` |
+| Dominios totalmente distintos | `midrinks.vercel.app` → `api.otrodominio.com` | `SAMESITE=none`, `SECURE=true` (la API exige HTTPS) |
+
+En los tres casos, `CORS_ORIGINS` lleva la URL exacta del frontend, sin barra final.
+
+> **Importante:** si el frontend y la API están en *dominios registrables distintos* (último caso),
+> la cookie es "de terceros" para el navegador. **Safari la bloquea siempre y otros navegadores
+> tienden a hacerlo**: la sesión no sobreviviría a recargar la página. Por eso lo recomendado es
+> servir ambos bajo el mismo dominio, en subdominios distintos. Así la cookie es de primera parte
+> y funciona en todos los navegadores, incluso con `SameSite=Lax`.
 
 ## Reglas de negocio
 
@@ -323,7 +392,8 @@ Es una regla de dominio (`canSeeAlcohol` en `identity/domain/principal.ts`), no 
 | Access token (JWT, corto) | `Authorization: Bearer …` | Apps propias; todo lo de la cuenta |
 | API key (`dk_…`) | `X-API-Key: …` | Integraciones de terceros: lectura de bebidas, lab y la carta de un bar |
 
-- **Refresh tokens:** rotan en cada uso. Si alguien reutiliza uno ya rotado, se revoca toda la
+- **Refresh tokens:** en navegador viajan en una cookie `httpOnly` (ver *Sesión en el navegador*).
+  Rotan en cada uso. Si alguien reutiliza uno ya rotado, se revoca toda la
   familia de sesiones que viene de ese login.
 - **Contraseñas:** se guardan con scrypt.
 - **Secretos:** de los refresh tokens y las API keys solo se guarda el hash.

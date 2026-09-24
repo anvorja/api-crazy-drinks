@@ -12,12 +12,12 @@ export async function signUp(server: App, birthDate = ADULT_BIRTH_DATE) {
   const email = `user${++counter}@test.local`;
   const password = 'secret-password-123';
   await request(server)
-    .post('/auth/register')
+    .post('/v1/auth/register')
     .send({ email, password, name: 'Test', birthDate })
     .expect(201);
   const res = await request(server)
-    .post('/auth/login')
-    .send({ email, password })
+    .post('/v1/auth/login')
+    .send({ email, password, refreshTokenIn: 'body' })
     .expect(200);
   const session = res.body as {
     accessToken: string;
@@ -29,8 +29,12 @@ export async function signUp(server: App, birthDate = ADULT_BIRTH_DATE) {
 
 export async function signInAsAdmin(server: App) {
   const res = await request(server)
-    .post('/auth/login')
-    .send({ email: TEST_ENV.ADMIN_EMAIL, password: TEST_ENV.ADMIN_PASSWORD })
+    .post('/v1/auth/login')
+    .send({
+      email: TEST_ENV.ADMIN_EMAIL,
+      password: TEST_ENV.ADMIN_PASSWORD,
+      refreshTokenIn: 'body',
+    })
     .expect(200);
   return res.body as {
     accessToken: string;
@@ -51,14 +55,14 @@ export async function signUpAs(
   const user = await signUp(server);
   if (role !== 'user') {
     await request(server)
-      .patch(`/admin/users/${user.user.id}/role`)
+      .patch(`/v1/admin/users/${user.user.id}/role`)
       .set(bearer(admin.accessToken))
       .send({ role })
       .expect(200);
   }
   if (planId) {
     await request(server)
-      .put(`/admin/users/${user.user.id}/subscription`)
+      .put(`/v1/admin/users/${user.user.id}/subscription`)
       .set(bearer(admin.accessToken))
       .send({
         planId,
@@ -67,7 +71,7 @@ export async function signUpAs(
       .expect(200);
   }
   const { body } = await request(server)
-    .post('/auth/refresh')
+    .post('/v1/auth/refresh')
     .send({ refreshToken: user.refreshToken })
     .expect(200);
   return body as {

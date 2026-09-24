@@ -102,7 +102,7 @@ export class MeDrinksController {
   @Get('pantry/suggestions')
   @ApiOperation({
     summary: 'Suggestions from my saved pantry',
-    description: 'Same as GET /lab/pantry, using the saved ingredients.',
+    description: 'Same as GET /v1/lab/pantry, using the saved ingredients.',
   })
   @ApiQueryFrom(pantrySuggestionOptionsSchema)
   @ApiResponseFrom(200, pantrySuggestionsResponseSchema, 'Suggestions')

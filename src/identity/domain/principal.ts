@@ -33,10 +33,12 @@ export function requireRole(
   principal: Principal | null,
   ...roles: Role[]
 ): Principal {
-  if (!principal) throw new UnauthorizedError('Authentication required');
+  if (!principal)
+    throw new UnauthorizedError('Authentication required', 'AUTH_REQUIRED');
   if (!roles.includes(principal.role)) {
     throw new ForbiddenError(
       `Requires one of these roles: ${roles.join(', ')}`,
+      'ROLE_REQUIRED',
     );
   }
   return principal;

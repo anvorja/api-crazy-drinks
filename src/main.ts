@@ -5,6 +5,7 @@ import { AppModule } from './app.module.js';
 import { APP_NAME } from './shared/infrastructure/app-info.js';
 import { ENV } from './shared/infrastructure/config/config.module.js';
 import { Env, loadEnvFile } from './shared/infrastructure/config/env.js';
+import { configureApp } from './shared/infrastructure/http/configure-app.js';
 import {
   OPENAPI_UI_PATH,
   setupOpenApi,
@@ -15,15 +16,7 @@ async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   const env = app.get<Env>(ENV);
 
-  app.set('trust proxy', env.TRUST_PROXY);
-  app.enableCors({
-    exposedHeaders: [
-      'Retry-After',
-      'X-RateLimit-Limit',
-      'X-RateLimit-Remaining',
-      'X-RateLimit-Reset',
-    ],
-  });
+  configureApp(app, env);
   app.enableShutdownHooks();
   if (env.OPENAPI_ENABLED) setupOpenApi(app);
 

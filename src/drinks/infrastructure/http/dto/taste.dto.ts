@@ -90,7 +90,7 @@ export const toMyTasteResponse = (
   taste: taste ? toTasteResponse(taste) : null,
   hint: taste
     ? null
-    : 'Swipe drinks at /discover/deck or add favorites with PUT /me/favorites/{drinkId} to build your taste profile.',
+    : 'Swipe drinks at /v1/discover/deck or add favorites with PUT /v1/me/favorites/{drinkId} to build your taste profile.',
 });
 
 export const toTasteRecommendationsResponse = (result: {

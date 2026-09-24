@@ -151,6 +151,7 @@ export class RecommendForMyTaste {
     if (!taste) {
       throw new ValidationError(
         'Like or favorite at least one drink to get recommendations',
+        'NO_TASTE_YET',
       );
     }
     const candidates = (await this.catalog.all()).filter((d) =>

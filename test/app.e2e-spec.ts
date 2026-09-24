@@ -26,7 +26,7 @@ describe('api-drinks (e2e)', () => {
     });
 
     it('GET /health/ready reports every dependency', async () => {
-      await http().get('/drinks/of-the-day').expect(200); // make sure the catalog is warm
+      await http().get('/v1/drinks/of-the-day').expect(200); // make sure the catalog is warm
       const res = await http().get('/health/ready').expect(200);
       expect(res.body.checks.catalog).toMatchObject({ status: 'up', size: 6 });
       expect(res.body.checks.theCocktailDb.status).toBe('up');
@@ -50,7 +50,7 @@ describe('api-drinks (e2e)', () => {
     it('GET /drinks/:id/dna returns a flavor profile to adults', async () => {
       const { accessToken } = await signUp(t.app.getHttpServer());
       const res = await http()
-        .get('/drinks/4/dna')
+        .get('/v1/drinks/4/dna')
         .set(bearer(accessToken))
         .expect(200);
       expect(res.body.drink.name).toBe('Margarita');
@@ -58,23 +58,23 @@ describe('api-drinks (e2e)', () => {
     });
 
     it('GET /drinks/:id validates ids', async () => {
-      await http().get('/drinks/abc').expect(400);
+      await http().get('/v1/drinks/abc').expect(400);
     });
 
     it('GET /drinks/:id answers 404 for unknown drinks', async () => {
-      await http().get('/drinks/999').expect(404);
+      await http().get('/v1/drinks/999').expect(404);
     });
 
     it('GET /drinks/search requires q', async () => {
-      await http().get('/drinks/search').expect(400);
+      await http().get('/v1/drinks/search').expect(400);
     });
   });
 
   describe('age verification', () => {
     it('anonymous viewers only get alcohol-free drinks', async () => {
-      await http().get('/drinks/4').expect(403);
+      await http().get('/v1/drinks/4').expect(403);
       const res = await http()
-        .get('/lab/pantry?have=rum,lime,sugar,soda')
+        .get('/v1/lab/pantry?have=rum,lime,sugar,soda')
         .expect(200);
       expect(res.body.canMake.map((d: { name: string }) => d.name)).toEqual([
         'Limeade',
@@ -86,16 +86,16 @@ describe('api-drinks (e2e)', () => {
         t.app.getHttpServer(),
         MINOR_BIRTH_DATE,
       );
-      await http().get('/drinks/4').set(bearer(accessToken)).expect(403);
+      await http().get('/v1/drinks/4').set(bearer(accessToken)).expect(403);
       await http()
-        .get('/lab/moods/fiesta')
+        .get('/v1/lab/moods/fiesta')
         .set(bearer(accessToken))
         .expect(403);
     });
 
     it('adults see everything', async () => {
       const { accessToken } = await signUp(t.app.getHttpServer());
-      await http().get('/drinks/4').set(bearer(accessToken)).expect(200);
+      await http().get('/v1/drinks/4').set(bearer(accessToken)).expect(200);
     });
   });
 
@@ -103,19 +103,19 @@ describe('api-drinks (e2e)', () => {
     it('GET /lab/pantry suggests drinks', async () => {
       const { accessToken } = await signUp(t.app.getHttpServer());
       const res = await http()
-        .get('/lab/pantry?have=ron,limón,azúcar')
+        .get('/v1/lab/pantry?have=ron,limón,azúcar')
         .set(bearer(accessToken))
         .expect(200);
       expect(res.body.canMake[0].name).toBe('Daiquiri');
     });
 
     it('GET /lab/pantry validates its query', async () => {
-      await http().get('/lab/pantry').expect(400);
-      await http().get('/lab/pantry?have=rum&maxMissing=9').expect(400);
+      await http().get('/v1/lab/pantry').expect(400);
+      await http().get('/v1/lab/pantry?have=rum&maxMissing=9').expect(400);
     });
 
     it('GET /lab/moods/:mood recommends a drink', async () => {
-      const res = await http().get('/lab/moods/guayabo').expect(200);
+      const res = await http().get('/v1/lab/moods/guayabo').expect(200);
       expect(res.body.drink.alcoholic).toBe(false);
     });
   });
