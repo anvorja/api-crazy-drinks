@@ -20,7 +20,7 @@ const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export function normalizeEmail(email: string): string {
   const normalized = email.trim().toLowerCase();
   if (!EMAIL.test(normalized))
-    throw new ValidationError('Invalid email address');
+    throw new ValidationError('Invalid email address', 'INVALID_EMAIL');
   return normalized;
 }
 
@@ -32,6 +32,7 @@ export function assertPasswordPolicy(password: string): void {
   ) {
     throw new ValidationError(
       'Password needs at least 10 characters, letters and numbers',
+      'WEAK_PASSWORD',
     );
   }
 }
@@ -49,7 +50,7 @@ export function ageOn(birthDate: Date, today: Date): number {
 export function assertValidBirthDate(birthDate: Date, today: Date): void {
   const age = ageOn(birthDate, today);
   if (Number.isNaN(age) || age < 0 || age > 120) {
-    throw new ValidationError('Invalid birth date');
+    throw new ValidationError('Invalid birth date', 'INVALID_BIRTH_DATE');
   }
 }
 

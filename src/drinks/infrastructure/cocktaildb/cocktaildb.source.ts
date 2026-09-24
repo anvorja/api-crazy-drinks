@@ -88,7 +88,10 @@ export class CocktailDbSource implements DrinkSource {
       this.logger.warn(
         `TheCocktailDB request failed (${path}): ${String(error)}`,
       );
-      throw new UnavailableError('TheCocktailDB is not reachable right now');
+      throw new UnavailableError(
+        'TheCocktailDB is not reachable right now',
+        'CATALOG_UNAVAILABLE',
+      );
     }
   }
 }

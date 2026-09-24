@@ -1,7 +1,9 @@
+import { ENV } from '../../src/shared/infrastructure/config/config.module.js';
+import type { Env } from '../../src/shared/infrastructure/config/env.js';
+import { configureApp } from '../../src/shared/infrastructure/http/configure-app.js';
 import { InMemoryCocktleGameRepository } from '../../src/drinks/infrastructure/persistence/in-memory/in-memory-cocktle.repository.js';
-import { INestApplication } from '@nestjs/common';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import { Test } from '@nestjs/testing';
-import type { App } from 'supertest/types.js';
 import { AppModule } from '../../src/app.module.js';
 import {
   InMemoryPlanRepository,
@@ -50,7 +52,7 @@ import { FakePgPool } from './fake-pg-pool.js';
 import { TEST_PLANS } from './plans.js';
 
 export interface TestApp {
-  app: INestApplication<App>;
+  app: NestExpressApplication;
   source: FakeDrinkSource;
   pool: FakePgPool;
 }
@@ -81,9 +83,10 @@ export async function createTestApp(): Promise<TestApp> {
   for (const [token, fake] of fakes)
     builder = builder.overrideProvider(token).useValue(fake);
 
-  const app = (await builder.compile()).createNestApplication<
-    INestApplication<App>
-  >();
+  const app = (
+    await builder.compile()
+  ).createNestApplication<NestExpressApplication>();
+  configureApp(app, app.get<Env>(ENV));
   setupOpenApi(app);
   await app.init();
   return { app, source, pool };

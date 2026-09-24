@@ -7,7 +7,7 @@ import { IdentityModule } from './identity/infrastructure/identity.module.js';
 import { ConfigModule } from './shared/infrastructure/config/config.module.js';
 import { DatabaseModule } from './shared/infrastructure/database/database.module.js';
 import { CacheControlInterceptor } from './shared/infrastructure/http/cache-control.js';
-import { DomainErrorFilter } from './shared/infrastructure/http/domain-error.filter.js';
+import { ApiExceptionFilter } from './shared/infrastructure/http/api-exception.filter.js';
 import { IndexController } from './shared/infrastructure/http/index.controller.js';
 import { SystemModule } from './shared/infrastructure/system.module.js';
 import { VenuesModule } from './venues/infrastructure/venues.module.js';
@@ -25,7 +25,7 @@ import { VenuesModule } from './venues/infrastructure/venues.module.js';
   ],
   controllers: [IndexController],
   providers: [
-    { provide: APP_FILTER, useClass: DomainErrorFilter },
+    { provide: APP_FILTER, useClass: ApiExceptionFilter },
     { provide: APP_INTERCEPTOR, useClass: CacheControlInterceptor },
   ],
 })

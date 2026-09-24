@@ -68,12 +68,19 @@ export function assertValidInventory(items: InventoryItem[]) {
 
 /** Opening a venue requires the venue_owner (or admin) role and legal age: it serves alcohol. */
 export function assertCanOpenVenue(principal: Principal | null): Principal {
-  if (!principal) throw new UnauthorizedError('Authentication required');
+  if (!principal)
+    throw new UnauthorizedError('Authentication required', 'AUTH_REQUIRED');
   if (principal.role !== 'venue_owner' && principal.role !== 'admin') {
-    throw new ForbiddenError('Only venue owners can register venues');
+    throw new ForbiddenError(
+      'Only venue owners can register venues',
+      'ROLE_REQUIRED',
+    );
   }
   if (!principal.adult)
-    throw new ForbiddenError('Venue owners must be of legal drinking age');
+    throw new ForbiddenError(
+      'Venue owners must be of legal drinking age',
+      'AGE_RESTRICTED',
+    );
   return principal;
 }
 
@@ -82,8 +89,9 @@ export function assertCanManage(
   venue: Venue,
   principal: Principal | null,
 ): void {
-  if (!principal) throw new UnauthorizedError('Authentication required');
+  if (!principal)
+    throw new UnauthorizedError('Authentication required', 'AUTH_REQUIRED');
   if (principal.role !== 'admin' && venue.ownerId !== principal.userId) {
-    throw new ForbiddenError('You do not manage this venue');
+    throw new ForbiddenError('You do not manage this venue', 'NOT_VENUE_OWNER');
   }
 }

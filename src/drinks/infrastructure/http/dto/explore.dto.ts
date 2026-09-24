@@ -50,7 +50,7 @@ export const exploreQuerySchema = z.object({
     .string()
     .trim()
     .optional()
-    .meta({ description: 'As in /drinks/facets', example: 'Cocktail' }),
+    .meta({ description: 'As in /v1/drinks/facets', example: 'Cocktail' }),
   glass: z.string().trim().optional().meta({ example: 'Highball glass' }),
   alcoholic: queryBoolean
     .optional()

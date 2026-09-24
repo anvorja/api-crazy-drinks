@@ -3,6 +3,27 @@ import { z } from 'zod';
 
 const isoDate = z.iso.date().transform((d) => new Date(`${d}T00:00:00Z`));
 const booleanString = z.enum(['true', 'false']).transform((v) => v === 'true');
+/** "https://a.com,https://b.com" -> ["https://a.com", "https://b.com"] (each must be an origin). */
+const originList = z
+  .string()
+  .transform((v) =>
+    v
+      .split(',')
+      .map((o) => o.trim())
+      .filter(Boolean),
+  )
+  .pipe(
+    z
+      .array(
+        z
+          .url()
+          .refine(
+            (u) => new URL(u).origin === u,
+            'Use bare origins: https://app.example.com',
+          ),
+      )
+      .min(1),
+  );
 /** Optional variable where an empty value (`NAME=` in a .env file) means "not set". */
 const optional = <T extends z.ZodType>(schema: T) =>
   z.preprocess((v) => (v === '' ? undefined : v), schema.optional());
@@ -28,6 +49,13 @@ const schema = z
     /** Behind a reverse proxy, trust X-Forwarded-For so login throttling sees the real IP. */
     TRUST_PROXY: booleanString,
     OPENAPI_ENABLED: booleanString,
+    /** Frontend origins allowed by CORS (and to refresh the session with the cookie). */
+    CORS_ORIGINS: originList,
+    /** Refresh token cookie. Frontend on another site -> none + secure. */
+    REFRESH_COOKIE_SAMESITE: z.enum(['strict', 'lax', 'none']),
+    REFRESH_COOKIE_SECURE: booleanString,
+    /** Optional: share the cookie across subdomains, e.g. ".example.com". */
+    REFRESH_COOKIE_DOMAIN: optional(z.string().min(1)),
     /** max-age of Cache-Control on catalog responses (0 disables caching). */
     CACHE_MAX_AGE_SECONDS: z.coerce.number().int().min(0),
 
@@ -55,6 +83,14 @@ const schema = z
     ADMIN_NAME: optional(z.string().min(1)),
     ADMIN_BIRTH_DATE: optional(isoDate),
   })
+  .refine(
+    (env) =>
+      env.REFRESH_COOKIE_SAMESITE !== 'none' || env.REFRESH_COOKIE_SECURE,
+    {
+      message:
+        'REFRESH_COOKIE_SAMESITE=none requires REFRESH_COOKIE_SECURE=true (browsers demand it)',
+    },
+  )
   .refine(
     (env) => {
       const set = [

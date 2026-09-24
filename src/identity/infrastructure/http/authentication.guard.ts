@@ -44,16 +44,23 @@ export class AuthenticationGuard implements CanActivate {
     if (authorization && apiKey) {
       throw new ValidationError(
         'Send either Authorization or X-API-Key, not both',
+        'AMBIGUOUS_CREDENTIALS',
       );
     }
     if (authorization) {
       const [scheme, token] = authorization.split(' ');
       if (scheme !== 'Bearer' || !token) {
-        throw new UnauthorizedError('Use "Authorization: Bearer <token>"');
+        throw new UnauthorizedError(
+          'Use "Authorization: Bearer <token>"',
+          'INVALID_ACCESS_TOKEN',
+        );
       }
       request.principal = await this.tokens.verify(token);
       if (!request.principal)
-        throw new UnauthorizedError('Invalid or expired access token');
+        throw new UnauthorizedError(
+          'Invalid or expired access token',
+          'INVALID_ACCESS_TOKEN',
+        );
     } else if (typeof apiKey === 'string') {
       const { principal, quota } =
         await this.authenticateApiKey.execute(apiKey);
@@ -70,10 +77,12 @@ export class AuthenticationGuard implements CanActivate {
     >(AUTH_REQUIREMENT, [context.getHandler(), context.getClass()]);
     if (!requirement) return true;
     const principal = request.principal;
-    if (!principal) throw new UnauthorizedError('Authentication required');
+    if (!principal)
+      throw new UnauthorizedError('Authentication required', 'AUTH_REQUIRED');
     if (principal.via === 'api_key' && !requirement.allowApiKey) {
       throw new ForbiddenError(
         'This endpoint needs a user session (Bearer token), not an API key',
+        'API_KEY_NOT_ALLOWED',
       );
     }
     if (
@@ -82,6 +91,7 @@ export class AuthenticationGuard implements CanActivate {
     ) {
       throw new ForbiddenError(
         `Requires one of these roles: ${requirement.roles.join(', ')}`,
+        'ROLE_REQUIRED',
       );
     }
     return true;

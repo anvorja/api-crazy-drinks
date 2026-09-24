@@ -1,4 +1,4 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, VERSION_NEUTRAL } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { z } from 'zod';
 import { APP_NAME, APP_VERSION } from '../app-info.js';
@@ -16,7 +16,7 @@ const indexSchema = z
   .meta({ id: 'ApiIndex' });
 
 @ApiTags('Health')
-@Controller()
+@Controller({ version: VERSION_NEUTRAL })
 export class IndexController {
   @Get()
   @ApiOperation({

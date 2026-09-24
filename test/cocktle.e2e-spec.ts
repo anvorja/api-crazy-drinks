@@ -8,7 +8,7 @@ describe('cocktle (e2e)', () => {
   const http = () => request(t.app.getHttpServer());
   const guess = (drinkId: string, mode = 'zero') =>
     http()
-      .post('/cocktle/today/guesses')
+      .post('/v1/cocktle/today/guesses')
       .set(bearer(token))
       .send({ drinkId, mode });
 
@@ -23,7 +23,7 @@ describe('cocktle (e2e)', () => {
 
   it('starts with one clue and no answer', async () => {
     const { body } = await http()
-      .get('/cocktle/today?mode=zero')
+      .get('/v1/cocktle/today?mode=zero')
       .set(bearer(token))
       .expect(200);
     expect(body).toMatchObject({
@@ -56,7 +56,7 @@ describe('cocktle (e2e)', () => {
 
     await guess('4').expect(409);
     const stats = await http()
-      .get('/cocktle/stats?mode=zero')
+      .get('/v1/cocktle/stats?mode=zero')
       .set(bearer(token))
       .expect(200);
     expect(stats.body).toMatchObject({
@@ -76,14 +76,14 @@ describe('cocktle (e2e)', () => {
   it('classic mode is for adults; minors play zero by default', async () => {
     const minor = await signUp(t.app.getHttpServer(), MINOR_BIRTH_DATE);
     await http()
-      .get('/cocktle/today?mode=classic')
+      .get('/v1/cocktle/today?mode=classic')
       .set(bearer(minor.accessToken))
       .expect(403);
     const { body } = await http()
-      .get('/cocktle/today')
+      .get('/v1/cocktle/today')
       .set(bearer(minor.accessToken))
       .expect(200);
     expect(body.mode).toBe('zero');
-    await http().get('/cocktle/today').expect(401);
+    await http().get('/v1/cocktle/today').expect(401);
   });
 });

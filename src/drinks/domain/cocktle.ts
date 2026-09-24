@@ -166,9 +166,15 @@ export function applyGuess(
   answer: Drink,
 ): CocktleGame {
   if (isFinished(game))
-    throw new ConflictError('This game is over: come back tomorrow');
+    throw new ConflictError(
+      'This game is over: come back tomorrow',
+      'GAME_OVER',
+    );
   if (game.guesses.includes(guess.id))
-    throw new ValidationError(`You already tried ${guess.name}`);
+    throw new ValidationError(
+      `You already tried ${guess.name}`,
+      'DUPLICATE_GUESS',
+    );
   return {
     ...game,
     guesses: [...game.guesses, guess.id],

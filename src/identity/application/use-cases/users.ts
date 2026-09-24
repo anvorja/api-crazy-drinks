@@ -37,7 +37,10 @@ export class RegisterUser {
     assertValidBirthDate(input.birthDate, now);
 
     if (await this.users.findByEmail(email)) {
-      throw new ConflictError('An account with that email already exists');
+      throw new ConflictError(
+        'An account with that email already exists',
+        'EMAIL_TAKEN',
+      );
     }
     const user: User = {
       id: this.ids.next(),
@@ -58,7 +61,7 @@ export class GetProfile {
 
   async execute(principal: Principal): Promise<User> {
     const user = await this.users.findById(principal.userId);
-    if (!user) throw new NotFoundError('User not found');
+    if (!user) throw new NotFoundError('User not found', 'USER_NOT_FOUND');
     return user;
   }
 }
@@ -85,10 +88,14 @@ export class ChangeUserRole {
   ): Promise<User> {
     const admin = requireRole(actor, 'admin');
     if (admin.userId === userId && role !== 'admin') {
-      throw new ForbiddenError('Admins cannot remove their own admin role');
+      throw new ForbiddenError(
+        'Admins cannot remove their own admin role',
+        'ADMIN_SELF_DEMOTION',
+      );
     }
     const user = await this.users.findById(userId);
-    if (!user) throw new NotFoundError(`User ${userId} not found`);
+    if (!user)
+      throw new NotFoundError(`User ${userId} not found`, 'USER_NOT_FOUND');
     await this.users.updateRole(userId, role);
     return { ...user, role };
   }

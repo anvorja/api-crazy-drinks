@@ -50,6 +50,7 @@ import { AdminUsersController } from './http/admin-users.controller.js';
 import { ApiKeysController } from './http/api-keys.controller.js';
 import { AuthController } from './http/auth.controller.js';
 import { AuthenticationGuard } from './http/authentication.guard.js';
+import { RefreshCookie } from './http/refresh-cookie.js';
 import {
   DrizzleApiKeyRepository,
   DrizzleApiUsageRepository,
@@ -276,6 +277,8 @@ const DAY_MS = 86_400_000;
         CLOCK,
       ],
     ),
+
+    RefreshCookie,
 
     // Inbound: every request goes through authentication.
     { provide: APP_GUARD, useClass: AuthenticationGuard },

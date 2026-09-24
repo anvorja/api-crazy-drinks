@@ -117,9 +117,10 @@ export class AuthenticateApiKey {
     const key = secret.startsWith(KEY_PREFIX)
       ? await this.keys.findByHash(this.opaque.hash(secret))
       : null;
-    if (!key || !isActive(key)) throw new UnauthorizedError(INVALID_KEY);
+    if (!key || !isActive(key))
+      throw new UnauthorizedError(INVALID_KEY, 'INVALID_API_KEY');
     const user = await this.users.findById(key.userId);
-    if (!user) throw new UnauthorizedError(INVALID_KEY);
+    if (!user) throw new UnauthorizedError(INVALID_KEY, 'INVALID_API_KEY');
 
     const principal = principalOf(user, now, 'api_key');
     const { apiDailyRequests } = await this.limits.limitsFor(principal);
@@ -129,6 +130,7 @@ export class AuthenticateApiKey {
       throw new RateLimitedError(
         `Daily quota of ${apiDailyRequests} requests reached. Upgrade your plan or wait for the reset.`,
         quota.resetsInSeconds,
+        'API_QUOTA_EXCEEDED',
       );
     }
     await this.keys.touch(key.id, now);

@@ -78,7 +78,8 @@ export class GetManagedVenue {
 
   async execute(actor: Principal | null, venueId: string): Promise<Venue> {
     const venue = await this.venues.findById(venueId);
-    if (!venue) throw new NotFoundError(`Venue ${venueId} not found`);
+    if (!venue)
+      throw new NotFoundError(`Venue ${venueId} not found`, 'VENUE_NOT_FOUND');
     assertCanManage(venue, actor);
     return venue;
   }

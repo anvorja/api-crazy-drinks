@@ -19,7 +19,7 @@ export type CocktleModeQueryDto = z.infer<typeof cocktleModeQuerySchema>;
 export const cocktleGuessBodySchema = z
   .object({
     drinkId: drinkIdSchema.meta({
-      description: 'Your guess. Use GET /drinks/suggest to pick it',
+      description: 'Your guess. Use GET /v1/drinks/suggest to pick it',
     }),
     mode: mode.optional(),
   })

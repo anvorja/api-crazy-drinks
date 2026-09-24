@@ -66,10 +66,11 @@ export class RecommendByMood {
     if (!mood) {
       throw new NotFoundError(
         `Unknown mood "${input}". Try: ${MOODS.map((m) => m.key).join(', ')}`,
+        'MOOD_NOT_FOUND',
       );
     }
     if (mood.alcoholic && !visibility.includeAlcoholic) {
-      throw new ForbiddenError(AGE_RESTRICTED_MESSAGE);
+      throw new ForbiddenError(AGE_RESTRICTED_MESSAGE, 'AGE_RESTRICTED');
     }
     const drinks = (await this.catalog.all()).filter((d) =>
       isVisible(d, visibility),

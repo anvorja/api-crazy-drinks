@@ -10,9 +10,15 @@ const DESCRIPTION = `
 API de bebidas y cocteles sobre TheCocktailDB: despensa inteligente, cocteles por estado de ánimo,
 ADN de sabor, gemelos y carta inteligente para bares.
 
+**Versión**: todas las rutas van bajo \`/v1\`, salvo \`/health\`, \`/health/ready\` y \`/\`.
+
+**Errores**: todos tienen la forma \`{ statusCode, code, message, error, details? }\`. El frontend decide por \`code\`
+(estable) y muestra su propio texto; \`message\` es solo una pista en inglés.
+
 **Autenticación**
-- Apps propias: \`Authorization: Bearer <accessToken>\` (ver /auth/login).
-- Integraciones de terceros: \`X-API-Key: <key>\` (ver /me/api-keys). Cuentan contra la cuota diaria del plan
+- Apps propias: \`Authorization: Bearer <accessToken>\` (ver /v1/auth/login). En navegador, el refresh token
+  viaja en una cookie httpOnly: haz las peticiones de /v1/auth con credentials: 'include'.
+- Integraciones de terceros: \`X-API-Key: <key>\` (ver /v1/me/api-keys). Cuentan contra la cuota diaria del plan
   y responden con los headers \`X-RateLimit-Limit\`, \`X-RateLimit-Remaining\` y \`X-RateLimit-Reset\`.
 
 **Verificación de edad**: las bebidas con alcohol solo se muestran a usuarios autenticados mayores de 18 años.

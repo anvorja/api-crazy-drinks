@@ -17,11 +17,11 @@ describe('discover · swipe (e2e)', () => {
   });
 
   const swipe = (id: string, reaction: string) =>
-    http().put(`/discover/${id}`).set(bearer(token)).send({ reaction });
+    http().put(`/v1/discover/${id}`).set(bearer(token)).send({ reaction });
 
   it('deals cards, learns from swipes and never repeats them', async () => {
     const first = await http()
-      .get('/discover/deck?count=30')
+      .get('/v1/discover/deck?count=30')
       .set(bearer(token))
       .expect(200);
     expect(first.body).toHaveLength(6);
@@ -36,7 +36,7 @@ describe('discover · swipe (e2e)', () => {
 
     await swipe('6', 'dislike').expect(200);
     const deck = await http()
-      .get('/discover/deck?count=30')
+      .get('/v1/discover/deck?count=30')
       .set(bearer(token))
       .expect(200);
     expect(deck.body.map((d: { id: string }) => d.id)).not.toEqual(
@@ -44,14 +44,17 @@ describe('discover · swipe (e2e)', () => {
     );
     expect(deck.body).toHaveLength(4);
 
-    const taste = await http().get('/me/taste').set(bearer(token)).expect(200);
+    const taste = await http()
+      .get('/v1/me/taste')
+      .set(bearer(token))
+      .expect(200);
     expect(taste.body.taste.basedOn).toBe(2);
   });
 
   it('a superlike also saves a favorite; swiping again replaces the reaction', async () => {
     await swipe('4', 'superlike').expect(200);
     const favorites = await http()
-      .get('/me/favorites')
+      .get('/v1/me/favorites')
       .set(bearer(token))
       .expect(200);
     expect(
@@ -61,7 +64,7 @@ describe('discover · swipe (e2e)', () => {
     await swipe('1', 'like').expect(200);
     await swipe('1', 'dislike').expect(200);
     const stats = await http()
-      .get('/discover/stats')
+      .get('/v1/discover/stats')
       .set(bearer(token))
       .expect(200);
     expect(stats.body).toEqual({
@@ -74,9 +77,9 @@ describe('discover · swipe (e2e)', () => {
 
   it('undo puts the drink back in the deck', async () => {
     await swipe('3', 'dislike').expect(200);
-    await http().delete('/discover/3').set(bearer(token)).expect(204);
+    await http().delete('/v1/discover/3').set(bearer(token)).expect(204);
     const deck = await http()
-      .get('/discover/deck?count=30')
+      .get('/v1/discover/deck?count=30')
       .set(bearer(token))
       .expect(200);
     expect(deck.body.map((d: { id: string }) => d.id)).toContain('3');
@@ -85,6 +88,6 @@ describe('discover · swipe (e2e)', () => {
   it('validates the reaction and respects the age rule', async () => {
     await swipe('2', 'love').expect(400);
     await swipe('999', 'like').expect(404);
-    await http().get('/discover/deck').expect(401);
+    await http().get('/v1/discover/deck').expect(401);
   });
 });

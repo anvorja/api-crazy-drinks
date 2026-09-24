@@ -18,14 +18,14 @@ describe('tu ADN de sabor (e2e)', () => {
   const favorite = (token: string, ...ids: string[]) =>
     Promise.all(
       ids.map((id) =>
-        http().put(`/me/favorites/${id}`).set(bearer(token)).expect(200),
+        http().put(`/v1/me/favorites/${id}`).set(bearer(token)).expect(200),
       ),
     );
 
   it('has no profile until there are favorites', async () => {
     const { accessToken } = await signUp(server());
     const { body } = await http()
-      .get('/me/taste')
+      .get('/v1/me/taste')
       .set(bearer(accessToken))
       .expect(200);
     expect(body).toMatchObject({
@@ -39,7 +39,7 @@ describe('tu ADN de sabor (e2e)', () => {
     await favorite(accessToken, '1', '2', '3');
 
     const { body } = await http()
-      .get('/me/taste')
+      .get('/v1/me/taste')
       .set(bearer(accessToken))
       .expect(200);
     expect(body.hint).toBeNull();
@@ -53,7 +53,7 @@ describe('tu ADN de sabor (e2e)', () => {
   it('recommendations are premium only', async () => {
     const { accessToken } = await signUp(server());
     await http()
-      .get('/me/taste/recommendations')
+      .get('/v1/me/taste/recommendations')
       .set(bearer(accessToken))
       .expect(403);
   });
@@ -61,13 +61,13 @@ describe('tu ADN de sabor (e2e)', () => {
   it('recommends unseen drinks with reasons to premium users', async () => {
     const { accessToken } = await signUpAs(server(), 'premium');
     await http()
-      .get('/me/taste/recommendations')
+      .get('/v1/me/taste/recommendations')
       .set(bearer(accessToken))
       .expect(400);
 
     await favorite(accessToken, '1', '2');
     const { body } = await http()
-      .get('/me/taste/recommendations?limit=3')
+      .get('/v1/me/taste/recommendations?limit=3')
       .set(bearer(accessToken))
       .expect(200);
 

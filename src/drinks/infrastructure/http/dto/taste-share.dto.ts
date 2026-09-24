@@ -36,7 +36,7 @@ export const tasteShareResponseSchema = z
     displayName: z.string(),
     sharedAt: z.string(),
     links: z.object({
-      profile: z.string().meta({ example: '/taste/q3Z8vK1mXw2a' }),
+      profile: z.string().meta({ example: '/v1/taste/q3Z8vK1mXw2a' }),
       cardPng: z
         .string()
         .meta({ description: 'Open Graph image (1200×630) for link previews' }),
@@ -85,9 +85,9 @@ export const compatibilityResponseSchema = z
   .meta({ id: 'TasteCompatibility' });
 
 const linksFor = (slug: string) => ({
-  profile: `/taste/${slug}`,
-  cardPng: `/taste/${slug}/card.png`,
-  cardSvg: `/taste/${slug}/card.svg`,
+  profile: `/v1/taste/${slug}`,
+  cardPng: `/v1/taste/${slug}/card.png`,
+  cardSvg: `/v1/taste/${slug}/card.svg`,
 });
 
 export const toTasteShareResponse = (
