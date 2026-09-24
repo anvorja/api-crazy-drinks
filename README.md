@@ -108,6 +108,76 @@ git switch -c release/3.1.0 develop           # PR hacia main (Merge) y luego ha
 git switch -c hotfix/descripcion main         # PR hacia main (Merge) y luego hacia develop (Squash)
 ```
 
+### Actualizar una rama: rebase
+
+**Rebasar** es mover tus commits para que partan de otro punto. Git vuelve a aplicar sus cambios
+encima del punto nuevo y crea commits nuevos, con el mismo contenido pero otro hash.
+
+**En el flujo normal no hace falta.** Si cada rama sale de un `develop` actualizado y entra antes
+de empezar la siguiente, nunca arrastra commits viejos:
+
+```
+1. git switch develop && git pull          ← partir siempre del develop actual
+2. git switch -c feature/lo-que-sea
+3. commits → PR → Squash and merge
+4. para la siguiente feature: volver al paso 1
+```
+
+Solo hay que actualizar la rama en estos dos casos.
+
+#### 1. `develop` avanzó y tu PR tiene conflictos
+
+Alguien mergeó algo que toca las mismas líneas que tú. Resuélvelo en tu rama con una de estas opciones:
+
+| Opción | Comandos | Cuándo |
+| ------ | -------- | ------ |
+| Rebase | `git fetch` · `git rebase origin/develop` · resolver · `git push --force-with-lease` | Historia limpia. Solo en **tu propia** rama de feature. |
+| Merge | `git fetch` · `git merge origin/develop` · resolver · `git push` | Sin reescribir historia; si la rama la comparten varias personas. |
+
+Con squash en `develop` da igual cuál uses: la feature entra como un único commit.
+
+#### 2. Ramas encadenadas: una feature que sale de otra que aún no entra
+
+A veces una feature depende de otra todavía sin mergear, así que sale de ella. El problema: el
+**squash no copia los commits de la primera rama, crea uno nuevo** con otro hash. La segunda rama
+sigue trayendo los commits originales, y git los ve como una historia distinta:
+
+```
+Antes del squash                   Después del squash de la rama A
+develop:  X                        develop:  X ── A'        ← A comprimida en un commit nuevo
+           \                                  \
+rama A:     A1                     rama B:     A1 ── B1     ← todavía trae A1: conflicto
+              \
+rama B:        B1
+```
+
+Si B toca líneas que A agregó, su PR muestra conflictos, aunque el orden de los merges haya sido
+el correcto. La solución es rebasar B para quedarse solo con sus commits encima del `develop` nuevo:
+
+```bash
+git fetch
+# "toma los commits de B que no están en A y ponlos sobre develop"
+git rebase --onto origin/develop <último-commit-de-A> feature/B
+git push --force-with-lease
+```
+
+```
+develop:  X ── A'
+                 \
+rama B:           B1'     ← solo lo de B, sin conflicto
+```
+
+- **Hay que repetirlo** después de cada squash de la cadena, con la siguiente rama.
+- **Antes de rebasar**, comprueba que `develop` ya tiene todo lo de A:
+  `git diff <último-commit-de-A> origin/develop` debe salir vacío.
+- **Alternativa más simple:** esperar a que A entre y crear B desde `develop`.
+
+**Reglas de seguridad:**
+- Solo se rebasan ramas `feature/*` propias. Nunca `main` ni `develop`; de todas formas los
+  rulesets bloquean el force push en ellas.
+- Usa `--force-with-lease`, no `--force`: el push se rechaza si alguien subió algo a la rama que
+  tú no tienes, así no pisas su trabajo.
+
 ### Configuración del repositorio en GitHub
 
 Hay dos capas. Hace falta entender cuál aplica a qué:
