@@ -49,6 +49,15 @@ const schema = z
     /** Behind a reverse proxy, trust X-Forwarded-For so login throttling sees the real IP. */
     TRUST_PROXY: booleanString,
     OPENAPI_ENABLED: booleanString,
+    /** Per-IP request limit (fixed window). postgres: shared by every instance. */
+    RATE_LIMIT_ENABLED: booleanString,
+    RATE_LIMIT_STORE: z.enum(['memory', 'postgres']),
+    RATE_LIMIT_WINDOW_SECONDS: z.coerce.number().int().min(1),
+    RATE_LIMIT_MAX: z.coerce.number().int().min(1),
+    /** For expensive endpoints: card images and autocomplete. */
+    RATE_LIMIT_HEAVY_MAX: z.coerce.number().int().min(1),
+    /** Largest JSON body accepted, in KB (413 PAYLOAD_TOO_LARGE above). */
+    BODY_LIMIT_KB: z.coerce.number().int().min(1).max(10_240),
     /** Frontend origins allowed by CORS (and to refresh the session with the cookie). */
     CORS_ORIGINS: originList,
     /** Refresh token cookie. Frontend on another site -> none + secure. */

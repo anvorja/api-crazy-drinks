@@ -71,6 +71,13 @@
       "when": 1790286002183,
       "tag": "0009_payments",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1790293084416,
+      "tag": "0010_rate_limit",
+      "breakpoints": true
     }
   ]
 }
