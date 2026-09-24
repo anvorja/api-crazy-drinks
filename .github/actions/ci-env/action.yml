@@ -1,0 +1,25 @@
+name: Preparar .env de CI
+description: >
+  Crea .env a partir de .env.example (única fuente de configuración) y genera en cada
+  ejecución los secretos que faltan. Nada queda escrito en el repositorio.
+outputs:
+  db-password:
+    description: Contraseña generada para el Postgres efímero
+    value: ${{ steps.env.outputs.db-password }}
+runs:
+  using: composite
+  steps:
+    - id: env
+      shell: bash
+      run: |
+        db_password="$(openssl rand -hex 24)"
+        jwt_secret="$(openssl rand -hex 48)"
+        echo "::add-mask::$db_password"
+        echo "::add-mask::$jwt_secret"
+        cp .env.example .env
+        sed -i \
+          -e "s|^DB_PASSWORD=.*|DB_PASSWORD=${db_password}|" \
+          -e "s|^DB_NAME=.*|DB_NAME=api-drinks-ci|" \
+          -e "s|^JWT_SECRET=.*|JWT_SECRET=${jwt_secret}|" \
+          .env
+        echo "db-password=$db_password" >> "$GITHUB_OUTPUT"
