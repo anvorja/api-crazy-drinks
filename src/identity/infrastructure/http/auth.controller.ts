@@ -25,6 +25,18 @@ import {
   RefreshSession,
 } from '../../application/use-cases/sessions.js';
 import { GetProfile, RegisterUser } from '../../application/use-cases/users.js';
+import {
+  RequestPasswordReset,
+  ResetPassword,
+} from '../../application/use-cases/account.js';
+import type {
+  ForgotPasswordBodyDto,
+  ResetPasswordBodyDto,
+} from './dto/account.dto.js';
+import {
+  forgotPasswordBodySchema,
+  resetPasswordBodySchema,
+} from './dto/account.dto.js';
 import type { Principal } from '../../domain/principal.js';
 import { Authenticated, CurrentPrincipal } from './auth.decorators.js';
 import { RefreshCookie } from './refresh-cookie.js';
@@ -55,7 +67,44 @@ export class AuthController {
     private readonly logout: Logout,
     private readonly getProfile: GetProfile,
     private readonly refreshCookie: RefreshCookie,
+    private readonly requestPasswordReset: RequestPasswordReset,
+    private readonly resetPassword: ResetPassword,
   ) {}
+
+  @Post('password/forgot')
+  @HttpCode(HttpStatus.ACCEPTED)
+  @ApiOperation({
+    summary: 'Forgot my password',
+    description:
+      'Always answers 202, whether the email exists or not (it never reveals accounts). If it exists, emails a single-use link to PASSWORD_RESET_URL?token=… that expires in minutes. Limited per email and per IP (429).',
+  })
+  @ApiBodyFrom(forgotPasswordBodySchema)
+  @ApiResponseFrom(202, null, 'If the account exists, the email is on its way')
+  @ApiErrors(400, 429)
+  async forgot(
+    @Body(new ZodValidationPipe(forgotPasswordBodySchema))
+    body: ForgotPasswordBodyDto,
+    @Ip() ip: string,
+  ) {
+    await this.requestPasswordReset.execute({ email: body.email, ip });
+  }
+
+  @Post('password/reset')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    summary: 'Reset my password',
+    description:
+      'With the token from the email. The link works once; afterwards every session is closed (log in with the new password).',
+  })
+  @ApiBodyFrom(resetPasswordBodySchema)
+  @ApiResponseFrom(204, null, 'Password changed')
+  @ApiErrors(400, 401)
+  async reset(
+    @Body(new ZodValidationPipe(resetPasswordBodySchema))
+    body: ResetPasswordBodyDto,
+  ) {
+    await this.resetPassword.execute(body);
+  }
 
   @Post('register')
   @ApiOperation({

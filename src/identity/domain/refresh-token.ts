@@ -17,4 +17,6 @@ export interface RefreshTokenRepository {
   /** Revokes only if still active; returns false when it was already revoked. */
   revoke(id: string, at: Date): Promise<boolean>;
   revokeFamily(familyId: string, at: Date): Promise<void>;
+  /** Logs the user out everywhere. */
+  revokeAllForUser(userId: string, at: Date): Promise<void>;
 }

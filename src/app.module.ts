@@ -10,12 +10,14 @@ import { CacheControlInterceptor } from './shared/infrastructure/http/cache-cont
 import { ApiExceptionFilter } from './shared/infrastructure/http/api-exception.filter.js';
 import { IndexController } from './shared/infrastructure/http/index.controller.js';
 import { SystemModule } from './shared/infrastructure/system.module.js';
+import { MailModule } from './shared/infrastructure/mail/mail.module.js';
 import { VenuesModule } from './venues/infrastructure/venues.module.js';
 
 @Module({
   imports: [
     ConfigModule,
     SystemModule,
+    MailModule,
     DatabaseModule,
     IdentityModule,
     BillingModule,

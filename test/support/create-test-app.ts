@@ -33,6 +33,7 @@ import {
   InMemoryApiKeyRepository,
   InMemoryApiUsageRepository,
   InMemoryLoginFailureRepository,
+  InMemoryPasswordResetRepository,
   InMemoryRefreshTokenRepository,
   InMemoryUserRepository,
 } from '../../src/identity/infrastructure/persistence/in-memory/in-memory-identity.repositories.js';
@@ -40,6 +41,7 @@ import {
   API_KEY_REPOSITORY,
   API_USAGE_REPOSITORY,
   LOGIN_FAILURE_REPOSITORY,
+  PASSWORD_RESET_REPOSITORY,
   REFRESH_TOKEN_REPOSITORY,
   USER_REPOSITORY,
 } from '../../src/identity/infrastructure/tokens.js';
@@ -48,6 +50,8 @@ import { setupOpenApi } from '../../src/shared/infrastructure/http/setup-openapi
 import { InMemoryVenueRepository } from '../../src/venues/infrastructure/persistence/in-memory/in-memory-venue.repository.js';
 import { VENUE_REPOSITORY } from '../../src/venues/infrastructure/tokens.js';
 import { FakeDrinkSource } from './fake-drink-source.js';
+import { FakeMailer } from './fake-mailer.js';
+import { MAILER } from '../../src/shared/infrastructure/mail/mail.module.js';
 import { FakePgPool } from './fake-pg-pool.js';
 import { TEST_PLANS } from './plans.js';
 
@@ -55,12 +59,14 @@ export interface TestApp {
   app: NestExpressApplication;
   source: FakeDrinkSource;
   pool: FakePgPool;
+  mailer: FakeMailer;
 }
 
 /** Full app with every outbound adapter replaced by an in-memory fake. */
 export async function createTestApp(): Promise<TestApp> {
   const source = new FakeDrinkSource();
   const pool = new FakePgPool();
+  const mailer = new FakeMailer();
   const fakes: [symbol, unknown][] = [
     [PG_POOL, pool],
     [DRINK_SOURCE, source],
@@ -73,6 +79,8 @@ export async function createTestApp(): Promise<TestApp> {
     [USER_REPOSITORY, new InMemoryUserRepository()],
     [REFRESH_TOKEN_REPOSITORY, new InMemoryRefreshTokenRepository()],
     [LOGIN_FAILURE_REPOSITORY, new InMemoryLoginFailureRepository()],
+    [PASSWORD_RESET_REPOSITORY, new InMemoryPasswordResetRepository()],
+    [MAILER, mailer],
     [API_KEY_REPOSITORY, new InMemoryApiKeyRepository()],
     [API_USAGE_REPOSITORY, new InMemoryApiUsageRepository()],
     [PLAN_REPOSITORY, new InMemoryPlanRepository(TEST_PLANS)],
@@ -89,5 +97,5 @@ export async function createTestApp(): Promise<TestApp> {
   configureApp(app, app.get<Env>(ENV));
   setupOpenApi(app);
   await app.init();
-  return { app, source, pool };
+  return { app, source, pool, mailer };
 }

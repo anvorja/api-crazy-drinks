@@ -46,4 +46,16 @@ export class DrizzleRefreshTokenRepository implements RefreshTokenRepository {
         ),
       );
   }
+
+  async revokeAllForUser(userId: string, at: Date): Promise<void> {
+    await this.db
+      .update(refreshTokensTable)
+      .set({ revokedAt: at })
+      .where(
+        and(
+          eq(refreshTokensTable.userId, userId),
+          isNull(refreshTokensTable.revokedAt),
+        ),
+      );
+  }
 }

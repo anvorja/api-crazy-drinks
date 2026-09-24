@@ -63,6 +63,8 @@ El `.env` real está en `.gitignore`.
 | Autenticación   | `JWT_SECRET` (mín. 32 caracteres), `JWT_ACCESS_TTL_SECONDS`, `REFRESH_TOKEN_TTL_DAYS` |
 | Frontend (web)  | `CORS_ORIGINS`, `REFRESH_COOKIE_SAMESITE`, `REFRESH_COOKIE_SECURE`, `REFRESH_COOKIE_DOMAIN` (ver *Conectar un frontend*) |
 | Límite de login | `LOGIN_MAX_FAILURES_PER_ACCOUNT`, `LOGIN_MAX_FAILURES_PER_IP`, `LOGIN_LOCKOUT_WINDOW_SECONDS` |
+| Recuperar contraseña | `PASSWORD_RESET_URL` (página del frontend), `PASSWORD_RESET_TTL_MINUTES`, `PASSWORD_RESET_MAX_PER_ACCOUNT`, `PASSWORD_RESET_MAX_PER_IP`, `PASSWORD_RESET_WINDOW_SECONDS` |
+| Correo          | `MAIL_TRANSPORT` (`log` o `smtp`), `MAIL_FROM`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASSWORD` |
 | Admin inicial   | `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `ADMIN_NAME`, `ADMIN_BIRTH_DATE` (las cuatro o ninguna) |
 
 ### Base de datos
@@ -80,7 +82,7 @@ pnpm db:studio                     # explorador visual
 | Contexto   | Tablas |
 | ---------- | ------ |
 | `drinks`   | `drinks`, `catalog_syncs`, `user_pantries`, `favorites`, `drink_reactions`, `taste_shares`, `cocktle_games` |
-| `identity` | `users`, `refresh_tokens`, `login_failures`, `api_keys`, `api_usage` |
+| `identity` | `users`, `refresh_tokens`, `login_failures`, `api_keys`, `api_usage`, `password_resets` |
 | `billing`  | `plans` (sembrada por `0004_seed_plans.sql`), `subscriptions` |
 | `venues`   | `venues`, `venue_inventory` |
 
@@ -402,6 +404,27 @@ Es una regla de dominio (`canSeeAlcohol` en `identity/domain/principal.ts`), no 
   `Retry-After`. Un login exitoso limpia los fallos de la cuenta.
 - **Lo que una API key no puede hacer:** gestionar la cuenta (`/me/*`, `/auth/*`, `/admin/*`) ni
   escribir en un bar. Si llega con una API key, responde `403`.
+
+### Cuenta
+
+| Endpoint | Para |
+| -------- | ---- |
+| `POST /auth/password/forgot` | `{ email }`. Responde **siempre 202**, exista o no la cuenta, para no revelar cuáles existen. Si existe, envía un correo con un enlace a `PASSWORD_RESET_URL?token=…`. |
+| `POST /auth/password/reset` | `{ token, newPassword }`. El enlace sirve una vez y vence en `PASSWORD_RESET_TTL_MINUTES`. Cierra todas las sesiones y avisa por correo. |
+| `PATCH /me/profile` | Cambiar el nombre. La fecha de nacimiento no se puede cambiar, porque decide el acceso al alcohol. |
+| `PUT /me/password` | `{ currentPassword, newPassword }`. Cierra todas las sesiones, incluida la actual, y avisa por correo. |
+| `DELETE /me` | `{ password }`. **Borra la cuenta y todo lo suyo** en cascada (sesiones, favoritos, swipes, ADN compartido, partidas, bares, API keys, suscripción), en cumplimiento de la Ley 1581. Un admin debe quitarse el rol antes. |
+
+- **Recuperar contraseña:** hay un solo enlace vigente, porque pedir otro invalida el anterior. Se
+  limita a `PASSWORD_RESET_MAX_PER_ACCOUNT` solicitudes por email y `PASSWORD_RESET_MAX_PER_IP` por
+  IP en la ventana. En la base de datos solo se guarda el hash del token.
+- **Correo:** va detrás de un puerto (`Mailer`). En desarrollo, `MAIL_TRANSPORT=log` escribe los
+  correos en el log. En producción, `smtp` los envía con cualquier proveedor SMTP (SES, SendGrid,
+  Mailgun…). Para probar SMTP en local:
+  ```bash
+  docker run -d --rm --name mailpit -p 1025:1025 -p 8025:8025 axllent/mailpit
+  # .env: MAIL_TRANSPORT=smtp, SMTP_HOST=localhost, SMTP_PORT=1025 → bandeja en http://localhost:8025
+  ```
 
 ### Roles
 
