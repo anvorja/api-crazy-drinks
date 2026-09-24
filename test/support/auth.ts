@@ -44,7 +44,7 @@ export const bearer = (token: string) => ({ Authorization: `Bearer ${token}` });
 /** Signs up a user, has the admin give them a role (and optionally a plan), returns a fresh session. */
 export async function signUpAs(
   server: App,
-  role: 'venue_owner' | 'user',
+  role: 'venue_owner' | 'premium' | 'user',
   planId?: string,
 ) {
   const admin = await signInAsAdmin(server);

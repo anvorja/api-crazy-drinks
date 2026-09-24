@@ -28,7 +28,9 @@ import {
 import {
   AddFavorite,
   GetMyPantry,
+  GetMyTasteProfile,
   ListFavorites,
+  RecommendForMyTaste,
   RemoveFavorite,
   SaveMyPantry,
   SuggestFromMyPantry,
@@ -43,6 +45,7 @@ import { AdminCatalogController } from './http/admin-catalog.controller.js';
 import { DrinksController } from './http/drinks.controller.js';
 import { LabController } from './http/lab.controller.js';
 import { MeDrinksController } from './http/me-drinks.controller.js';
+import { MeTasteController } from './http/me-taste.controller.js';
 import { DrizzleDrinkRepository } from './persistence/drizzle/drizzle-drink.repository.js';
 import {
   DrizzleFavoriteRepository,
@@ -60,6 +63,7 @@ import {
     DrinksController,
     LabController,
     MeDrinksController,
+    MeTasteController,
     AdminCatalogController,
   ],
   providers: [
@@ -147,6 +151,14 @@ import {
       (r: FavoriteRepository, g: GetDrink, clock: Clock) =>
         new AddFavorite(r, g, clock),
       [FAVORITE_REPOSITORY, GetDrink, CLOCK],
+    ),
+    provide(GetMyTasteProfile, (f: ListFavorites) => new GetMyTasteProfile(f), [
+      ListFavorites,
+    ]),
+    provide(
+      RecommendForMyTaste,
+      (f: ListFavorites, c: DrinkCatalog) => new RecommendForMyTaste(f, c),
+      [ListFavorites, DrinkCatalog],
     ),
     provide(RemoveFavorite, (r: FavoriteRepository) => new RemoveFavorite(r), [
       FAVORITE_REPOSITORY,

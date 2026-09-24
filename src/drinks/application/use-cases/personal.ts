@@ -1,4 +1,11 @@
 import { Clock } from '../../../shared/application/ports.js';
+import { ValidationError } from '../../../shared/domain/errors.js';
+import {
+  Recommendation,
+  TasteProfile,
+  buildTasteProfile,
+  recommendForTaste,
+} from '../../domain/taste.js';
 import { Drink, DrinkVisibility, isVisible } from '../../domain/drink.js';
 import {
   FavoriteRepository,
@@ -107,5 +114,49 @@ export class ListFavorites {
         ? [{ drink, addedAt: favorite.createdAt }]
         : [];
     });
+  }
+}
+
+/** "Tu ADN de sabor": the user's taste, learned from their favorites. Null without favorites. */
+export class GetMyTasteProfile {
+  constructor(private readonly favorites: ListFavorites) {}
+
+  async execute(
+    userId: string,
+    visibility: DrinkVisibility,
+  ): Promise<TasteProfile | null> {
+    const favorites = await this.favorites.execute(userId, visibility);
+    return buildTasteProfile(favorites.map((f) => f.drink));
+  }
+}
+
+/** Drinks the user hasn't favorited yet, closest to their taste, with the reasons. */
+export class RecommendForMyTaste {
+  constructor(
+    private readonly favorites: ListFavorites,
+    private readonly catalog: DrinkCatalog,
+  ) {}
+
+  async execute(
+    userId: string,
+    limit: number,
+    visibility: DrinkVisibility,
+  ): Promise<{ taste: TasteProfile; recommendations: Recommendation[] }> {
+    const favorites = (await this.favorites.execute(userId, visibility)).map(
+      (f) => f.drink,
+    );
+    const taste = buildTasteProfile(favorites);
+    if (!taste) {
+      throw new ValidationError(
+        'Add at least one favorite drink to get recommendations',
+      );
+    }
+    const candidates = (await this.catalog.all()).filter((d) =>
+      isVisible(d, visibility),
+    );
+    return {
+      taste,
+      recommendations: recommendForTaste(taste, favorites, candidates, limit),
+    };
   }
 }
