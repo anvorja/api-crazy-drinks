@@ -11,6 +11,11 @@ import { CLOCK } from '../../shared/infrastructure/system.module.js';
 import { DrinkCatalog } from '../application/drink-catalog.js';
 import type { DrinkSource } from '../application/ports/drink-source.port.js';
 import {
+  ExploreDrinks,
+  GetDrinkFacets,
+  SuggestDrinks,
+} from '../application/use-cases/explore.js';
+import {
   FindDrinkTwins,
   GetFlavorDna,
 } from '../application/use-cases/drink-insights.js';
@@ -82,6 +87,7 @@ import {
           timeoutMs: env.COCKTAILDB_TIMEOUT_MS,
           crawlConcurrency: env.COCKTAILDB_CRAWL_CONCURRENCY,
           retries: env.COCKTAILDB_RETRIES,
+          imagesBaseUrl: env.COCKTAILDB_IMAGES_BASE_URL,
         }),
       [ENV],
     ),
@@ -126,6 +132,15 @@ import {
       DrinkCatalog,
     ]),
     provide(ListMoods, () => new ListMoods()),
+    provide(ExploreDrinks, (c: DrinkCatalog) => new ExploreDrinks(c), [
+      DrinkCatalog,
+    ]),
+    provide(GetDrinkFacets, (c: DrinkCatalog) => new GetDrinkFacets(c), [
+      DrinkCatalog,
+    ]),
+    provide(SuggestDrinks, (c: DrinkCatalog) => new SuggestDrinks(c), [
+      DrinkCatalog,
+    ]),
 
     // Personal: saved pantry and favorites
     provide(GetMyPantry, (r: UserPantryRepository) => new GetMyPantry(r), [

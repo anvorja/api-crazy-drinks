@@ -1,11 +1,12 @@
 import { Module } from '@nestjs/common';
-import { APP_FILTER } from '@nestjs/core';
+import { APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
 import { BillingModule } from './billing/infrastructure/billing.module.js';
 import { DrinksModule } from './drinks/infrastructure/drinks.module.js';
 import { HealthModule } from './health/infrastructure/health.module.js';
 import { IdentityModule } from './identity/infrastructure/identity.module.js';
 import { ConfigModule } from './shared/infrastructure/config/config.module.js';
 import { DatabaseModule } from './shared/infrastructure/database/database.module.js';
+import { CacheControlInterceptor } from './shared/infrastructure/http/cache-control.js';
 import { DomainErrorFilter } from './shared/infrastructure/http/domain-error.filter.js';
 import { IndexController } from './shared/infrastructure/http/index.controller.js';
 import { SystemModule } from './shared/infrastructure/system.module.js';
@@ -23,6 +24,9 @@ import { VenuesModule } from './venues/infrastructure/venues.module.js';
     HealthModule,
   ],
   controllers: [IndexController],
-  providers: [{ provide: APP_FILTER, useClass: DomainErrorFilter }],
+  providers: [
+    { provide: APP_FILTER, useClass: DomainErrorFilter },
+    { provide: APP_INTERCEPTOR, useClass: CacheControlInterceptor },
+  ],
 })
 export class AppModule {}
