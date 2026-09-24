@@ -16,7 +16,7 @@ describe('explore', () => {
     } while (after);
 
     expect(pages).toBe(2);
-    expect(seen).toEqual([...DRINKS.map((d) => d.name)].sort());
+    expect(seen).toEqual(DRINKS.map((d) => d.name).sort());
   });
 
   it('combines filters, with Spanish ingredient names', () => {
