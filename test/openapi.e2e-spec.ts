@@ -66,6 +66,8 @@ describe('OpenAPI (e2e)', () => {
         'GET /plans',
         'GET /venues/{id}/menu',
         'PUT /admin/users/{id}/subscription',
+        'GET /me/taste',
+        'GET /me/taste/recommendations',
       ]),
     );
     expect(routes.length).toBeGreaterThanOrEqual(35);

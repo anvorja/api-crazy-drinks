@@ -5,7 +5,7 @@ No es solo un buscador de recetas:
 - te dice qué puedes preparar con lo que tienes en la cocina, y qué comprar para preparar más;
 - qué tomar según tu estado de ánimo;
 - cuál es el "ADN de sabor" de cada bebida y cuáles son sus gemelas;
-- guarda tu despensa y tus favoritos;
+- guarda tu despensa y tus favoritos, y aprende de ellos **tu ADN de sabor** para recomendarte bebidas nuevas;
 - y a los bares les arma una **carta inteligente** con costo, precio sugerido y margen por coctel.
 
 Corre en el puerto definido por `PORT` (**8090** en `.env.example`).
@@ -266,7 +266,8 @@ Es una regla de dominio (`canSeeAlcohol` en `identity/domain/principal.ts`), no 
 | Rol           | Puede |
 | ------------- | ----- |
 | `user`        | Todo lo público; con 18+, ver bebidas con alcohol; despensa, favoritos y API keys |
-| `premium`, `bartender` | Reservados para las siguientes funcionalidades |
+| `premium`     | Lo de `user` + recomendaciones personalizadas según su ADN de sabor |
+| `bartender`   | Reservado para las siguientes funcionalidades |
 | `venue_owner` | Registrar bares y usar la carta inteligente (debe ser mayor de edad) |
 | `admin`       | Gestionar roles y suscripciones, resincronizar el catálogo y ver cualquier bar. Sin límites de plan. |
 
@@ -288,6 +289,21 @@ Los valores iniciales son:
 - Por ahora un admin asigna las suscripciones (`PUT /admin/users/:id/subscription`), por ejemplo
   al confirmar una transferencia. Conectar una pasarela de pago es agregar un adaptador.
 - Una suscripción cancelada sigue vigente hasta el fin del periodo.
+
+### Tu ADN de sabor
+
+- **`GET /me/taste`** (cualquier usuario autenticado): promedia el ADN de sabor de tus favoritos y
+  devuelve tu perfil de 0 a 100, tus rasgos dominantes, tu personalidad, la intensidad que sueles
+  elegir y los ingredientes que más repites.
+  - La confianza sube con la cantidad de favoritos: `low` con 1–2, `medium` con 3–7 y `high` con 8 o más.
+  - Sin favoritos responde `taste: null` con una pista de cómo empezar.
+- **`GET /me/taste/recommendations`** (rol `premium` o `admin`): bebidas que aún no están en tus
+  favoritos, ordenadas por afinidad (0–100) y cada una con sus razones.
+  - La afinidad combina un 70 % de similitud entre sabores (coseno entre tu perfil y el ADN de la
+    bebida) y un 30 % de ingredientes que ya están en tus favoritos.
+  - Ejemplos de razones: *"Coincide con tu lado dulce, cítrico e intenso"*,
+    *"Comparte ingredientes con tus favoritos: light rum, lime juice"*.
+- **Edad:** respeta la verificación de edad. A un menor nunca se le recomienda alcohol.
 
 ### Carta inteligente: cómo se costea
 

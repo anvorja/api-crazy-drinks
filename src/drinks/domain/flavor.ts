@@ -234,7 +234,7 @@ const PERSONALITIES: Record<FlavorDimension, string> = {
   spicy: 'El picante',
 };
 
-const SOULS: Record<FlavorDimension, string> = {
+export const SOULS: Record<FlavorDimension, string> = {
   sweet: 'dulce',
   sour: 'cítrica',
   bitter: 'amarga',
@@ -286,21 +286,38 @@ export function strengthOf(drink: Drink): Strength {
   return 'light';
 }
 
+/** Dimensions scoring 60+ in a 0-100 profile, strongest first. */
+export const dominantTraits = (profile: FlavorVector): FlavorDimension[] =>
+  FLAVOR_DIMENSIONS.filter((d) => profile[d] >= DOMINANT_THRESHOLD).sort(
+    (a, b) => profile[b] - profile[a],
+  );
+
+/** Rescales so the strongest dimension is 100 (all zeros stay zeros). */
+export function normalizeProfile(raw: FlavorVector): FlavorVector {
+  const max = Math.max(...Object.values(raw));
+  const out = { ...raw };
+  for (const dim of FLAVOR_DIMENSIONS)
+    out[dim] = max ? Math.round((raw[dim] / max) * 100) : 0;
+  return out;
+}
+
 export function flavorDna(drink: Drink): FlavorDna {
   const profile = flavorVector(drink);
-  const dominant = FLAVOR_DIMENSIONS.filter(
-    (d) => profile[d] >= DOMINANT_THRESHOLD,
-  ).sort((a, b) => profile[b] - profile[a]);
+  const dominant = dominantTraits(profile);
   return {
     profile,
     dominant,
-    personality: personality(dominant),
+    personality: describePersonality(dominant),
     strength: strengthOf(drink),
     complexity: drink.ingredients.length,
   };
 }
 
-function personality([first, second]: FlavorDimension[]): string {
+/** "El goloso con alma cremosa": from the two strongest traits. */
+export function describePersonality([
+  first,
+  second,
+]: FlavorDimension[]): string {
   if (!first) return 'El misterioso';
   return second
     ? `${PERSONALITIES[first]} con alma ${SOULS[second]}`
