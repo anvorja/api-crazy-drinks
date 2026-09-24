@@ -58,8 +58,8 @@ El `.env` real está en `.gitignore`.
 | Grupo           | Variables |
 | --------------- | --------- |
 | Servidor        | `NODE_ENV`, `PORT`, `TRUST_PROXY` (detrás de un proxy, para ver la IP real), `OPENAPI_ENABLED`, `CACHE_MAX_AGE_SECONDS` |
-| TheCocktailDB   | `COCKTAILDB_BASE_URL`, `COCKTAILDB_API_KEY`, `COCKTAILDB_IMAGES_BASE_URL`, `COCKTAILDB_TIMEOUT_MS`, `COCKTAILDB_RETRIES`, `COCKTAILDB_CRAWL_CONCURRENCY`, `CATALOG_TTL_MS` |
-| PostgreSQL      | `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_POOL_MAX` |
+| TheCocktailDB   | `COCKTAILDB_BASE_URL`, `COCKTAILDB_API_KEY`, `COCKTAILDB_IMAGES_BASE_URL`, `COCKTAILDB_TIMEOUT_MS`, `COCKTAILDB_RETRIES`, `COCKTAILDB_CRAWL_CONCURRENCY`, `CATALOG_TTL_MS`, `CATALOG_CACHE_CHECK_SECONDS` |
+| PostgreSQL      | `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_POOL_MAX`, `MIGRATE_ON_START` |
 | Autenticación   | `JWT_SECRET` (mín. 32 caracteres), `JWT_ACCESS_TTL_SECONDS`, `REFRESH_TOKEN_TTL_DAYS` |
 | Observabilidad  | `LOG_FORMAT` (`json` o `pretty`), `LOG_LEVEL`, `METRICS_ENABLED`, `METRICS_TOKEN`, `SENTRY_DSN` |
 | Protección HTTP | `RATE_LIMIT_ENABLED`, `RATE_LIMIT_STORE` (`memory` o `postgres`), `RATE_LIMIT_WINDOW_SECONDS`, `RATE_LIMIT_MAX`, `RATE_LIMIT_HEAVY_MAX`, `BODY_LIMIT_KB` |
@@ -258,6 +258,93 @@ Los tres corren en paralelo.
   - push a `develop`: `develop` y `sha-<commit>`.
 - **Despliegue:** el CD termina en la imagen publicada. Desplegarla en un servidor o una nube es el
   siguiente paso cuando se defina dónde va a vivir la API.
+
+## Despliegue
+
+### Con Docker Compose (un servidor, o local)
+
+```bash
+cp .env.example .env              # completa DB_PASSWORD, JWT_SECRET…
+docker compose up -d --build      # PostgreSQL + API (aplica las migraciones al arrancar)
+docker compose --profile mail up -d   # además Mailpit para ver los correos: http://localhost:8025
+```
+
+`docker-compose.yml` no guarda ningún secreto: todo sale de `.env`.
+
+### En una plataforma (Render, Railway, Fly.io, ECS, Cloud Run, Kubernetes…)
+
+- **Imagen:** la de GitHub Container Registry que publica el CD, `ghcr.io/<owner>/<repo>`, con tag
+  `develop` para staging y `latest` para producción.
+- **Base de datos:** un **PostgreSQL gestionado**, con backups automáticos y restauración a un
+  punto en el tiempo.
+- **Configuración:** todas las variables como **secretos de la plataforma**; nunca un `.env` dentro
+  de la imagen.
+- **Migraciones:** `MIGRATE_ON_START=true` las aplica al arrancar. Con varias réplicas es seguro,
+  porque un *advisory lock* de Postgres hace que migre una y las demás esperen. La otra opción es
+  un paso previo al despliegue: `node dist/shared/infrastructure/database/migrate.js`.
+- **Sondas:** *liveness* en `GET /health` y *readiness* en `GET /health/ready`.
+- **Varias instancias:** con `RATE_LIMIT_STORE=postgres`, el límite de peticiones se comparte entre
+  réplicas. La caché del catálogo de cada réplica detecta los cambios de las demás cada
+  `CATALOG_CACHE_CHECK_SECONDS`.
+
+**Ambientes:**
+
+| Ambiente | Rama e imagen | Base de datos | Llaves |
+| -------- | ------------- | ------------- | ------ |
+| staging | `develop` | propia | Wompi **sandbox**; correo a Mailpit o a un proveedor de pruebas |
+| producción | `main` (`latest`) | propia, con backups | Wompi **producción**, SMTP real, clave Premium de TheCocktailDB |
+
+### Checklist de producción
+
+| Variable | Valor |
+| -------- | ----- |
+| `NODE_ENV` | `production` |
+| `LOG_FORMAT` | `json` |
+| `TRUST_PROXY` | `true` si hay un balanceador o proxy delante (casi siempre) |
+| `CORS_ORIGINS` | la URL exacta del frontend |
+| `REFRESH_COOKIE_SECURE` | `true`; y `SAMESITE` según *Conectar un frontend* |
+| `RATE_LIMIT_STORE` | `postgres` |
+| `METRICS_TOKEN` | un token largo y aleatorio |
+| `OPENAPI_ENABLED` | `false`, si no quieres la documentación pública |
+| `JWT_SECRET` | aleatorio: `openssl rand -base64 48` |
+| `MAIL_TRANSPORT` | `smtp` con un proveedor real |
+| `PAYMENTS_PROVIDER` | `wompi` con las llaves de **producción** y `WOMPI_API_URL=https://production.wompi.co/v1` |
+| `COCKTAILDB_API_KEY` | la clave **Premium** (ver *Datos de TheCocktailDB*) |
+| `SENTRY_DSN` | recomendado |
+
+### Backups
+
+Si usas PostgreSQL gestionado, **usa sus backups automáticos**. Si no, hay scripts de backup lógico:
+
+```bash
+scripts/backup-db.sh                       # pg_dump -Fc a backups/, borra los de más de BACKUP_RETENTION_DAYS (7)
+BACKUP_DIR=/srv/backups scripts/backup-db.sh
+scripts/restore-db.sh backups/<archivo>.dump   # DESTRUCTIVO: pide escribir el nombre de la base
+```
+
+- **Configuración:** leen `DB_*` del entorno o de `.env`; el entorno tiene prioridad.
+- **Programación:** prográmalos con cron o un timer y copia los backups **fuera del servidor**.
+- **Prueba de vez en cuando que restauran,** por ejemplo en una base temporal.
+
+## Datos de TheCocktailDB
+
+Las recetas e imágenes vienen de [TheCocktailDB](https://www.thecocktaildb.com/). Sus términos
+(revisados en septiembre de 2026) dicen:
+
+- **Clave:** la clave de pruebas `1` es solo para desarrollo o uso educativo. Para publicar hace
+  falta la **clave Premium**, que según su [página de la API](https://www.thecocktaildb.com/api.php)
+  tiene un pago único de unos USD 10. Además quita el tope de 100 resultados por consulta y permite
+  filtrar por varios ingredientes.
+- **Atribución obligatoria:** hay que citarlos como fuente y enlazar a su sitio. La API lo expone en
+  `attribution` (en `GET /`) y en la descripción de OpenAPI. **El frontend debe mostrar** "Datos e
+  imágenes: TheCocktailDB" con el enlace.
+- **"You cannot resell our API":** no se puede revender su API sin permiso. **Riesgo para el modelo
+  de negocio:** los planes que venden *API keys* para consultar bebidas (la cuota de
+  `/me/api-keys`) podrían interpretarse como reventa. Las funciones con valor propio (carta de
+  bares, ADN, swipe, Cocktle) son más defendibles. **Antes de cobrar por API keys, pide permiso
+  por escrito a TheCocktailDB** o limita esas keys a las funciones propias.
+
+Términos completos: <https://www.thecocktaildb.com/terms_of_use.php>
 
 ## Docker
 

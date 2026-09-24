@@ -12,6 +12,9 @@ const indexSchema = z
     tagline: z.string(),
     docs: z.object({ ui: z.string(), openapi: z.string() }),
     source: z.string(),
+    attribution: z
+      .string()
+      .meta({ description: 'Show it wherever you display drinks' }),
   })
   .meta({ id: 'ApiIndex' });
 
@@ -32,6 +35,8 @@ export class IndexController {
         'No te decimos qué tomar: te decimos quién eres cuando lo tomas.',
       docs: { ui: `/${OPENAPI_UI_PATH}`, openapi: `/${OPENAPI_JSON_PATH}` },
       source: 'https://www.thecocktaildb.com',
+      attribution:
+        'Recipe data and imagery: TheCocktailDB (https://www.thecocktaildb.com/)',
     };
   }
 }

@@ -25,6 +25,8 @@ export const TEST_ENV: Record<string, string> = {
   COCKTAILDB_RETRIES: '0',
   COCKTAILDB_CRAWL_CONCURRENCY: '1',
   CATALOG_TTL_MS: '60000',
+  CATALOG_CACHE_CHECK_SECONDS: '0',
+  MIGRATE_ON_START: 'false',
   DB_HOST: 'db.test',
   DB_PORT: '5432',
   DB_NAME: 'test',

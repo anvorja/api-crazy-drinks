@@ -112,8 +112,9 @@ import {
     // Outbound adapters
     provide(
       DRINK_REPOSITORY,
-      (db: Database) => new DrizzleDrinkRepository(db),
-      [DRIZZLE],
+      (db: Database, env: Env) =>
+        new DrizzleDrinkRepository(db, env.CATALOG_CACHE_CHECK_SECONDS * 1000),
+      [DRIZZLE, ENV],
     ),
     provide(
       DRINK_SOURCE,

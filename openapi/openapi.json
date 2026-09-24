@@ -4490,7 +4490,7 @@
   },
   "info": {
     "title": "api-drinks",
-    "description": "\nAPI de bebidas y cocteles sobre TheCocktailDB: despensa inteligente, cocteles por estado de ánimo,\nADN de sabor, gemelos y carta inteligente para bares.\n\n**Versión**: todas las rutas van bajo `/v1`, salvo `/health`, `/health/ready` y `/`.\n\n**Errores**: todos tienen la forma `{ statusCode, code, message, error, details? }`. El frontend decide por `code`\n(estable) y muestra su propio texto; `message` es solo una pista en inglés.\n\n**Autenticación**\n- Apps propias: `Authorization: Bearer <accessToken>` (ver /v1/auth/login). En navegador, el refresh token\n  viaja en una cookie httpOnly: haz las peticiones de /v1/auth con credentials: 'include'.\n- Integraciones de terceros: `X-API-Key: <key>` (ver /v1/me/api-keys). Cuentan contra la cuota diaria del plan\n  y responden con los headers `X-RateLimit-Limit`, `X-RateLimit-Remaining` y `X-RateLimit-Reset`.\n\n**Verificación de edad**: las bebidas con alcohol solo se muestran a usuarios autenticados mayores de 18 años.\n",
+    "description": "\nAPI de bebidas y cocteles sobre TheCocktailDB: despensa inteligente, cocteles por estado de ánimo,\nADN de sabor, gemelos y carta inteligente para bares.\n\n**Versión**: todas las rutas van bajo `/v1`, salvo `/health`, `/health/ready` y `/`.\n\n**Errores**: todos tienen la forma `{ statusCode, code, message, error, details? }`. El frontend decide por `code`\n(estable) y muestra su propio texto; `message` es solo una pista en inglés.\n\n**Autenticación**\n- Apps propias: `Authorization: Bearer <accessToken>` (ver /v1/auth/login). En navegador, el refresh token\n  viaja en una cookie httpOnly: haz las peticiones de /v1/auth con credentials: 'include'.\n- Integraciones de terceros: `X-API-Key: <key>` (ver /v1/me/api-keys). Cuentan contra la cuota diaria del plan\n  y responden con los headers `X-RateLimit-Limit`, `X-RateLimit-Remaining` y `X-RateLimit-Reset`.\n\n**Fuente de datos**: recetas e imágenes de [TheCocktailDB](https://www.thecocktaildb.com/). Todo frontend que\nmuestre bebidas debe mostrar \"Datos e imágenes: TheCocktailDB\" con un enlace a su sitio (condición de su uso).\n\n**Verificación de edad**: las bebidas con alcohol solo se muestran a usuarios autenticados mayores de 18 años.\n",
     "version": "3.0.0",
     "contact": {}
   },
@@ -7024,6 +7024,10 @@
           },
           "source": {
             "type": "string"
+          },
+          "attribution": {
+            "type": "string",
+            "description": "Show it wherever you display drinks"
           }
         },
         "required": [
@@ -7031,7 +7035,8 @@
           "version",
           "tagline",
           "docs",
-          "source"
+          "source",
+          "attribution"
         ],
         "additionalProperties": false
       },

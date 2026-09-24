@@ -2030,6 +2030,8 @@ export interface components {
         openapi: string;
       };
       source: string;
+      /** @description Show it wherever you display drinks */
+      attribution: string;
     };
     CreateVenueRequest: {
       /** @example La Barra */
