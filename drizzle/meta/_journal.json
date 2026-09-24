@@ -50,6 +50,13 @@
       "when": 1790276410630,
       "tag": "0006_taste_shares",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1790276718438,
+      "tag": "0007_cocktle",
+      "breakpoints": true
     }
   ]
 }

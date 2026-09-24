@@ -1,3 +1,4 @@
+import { InMemoryCocktleGameRepository } from '../../src/drinks/infrastructure/persistence/in-memory/in-memory-cocktle.repository.js';
 import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import type { App } from 'supertest/types.js';
@@ -20,6 +21,7 @@ import {
   DRINK_REPOSITORY,
   DRINK_SOURCE,
   FAVORITE_REPOSITORY,
+  COCKTLE_GAME_REPOSITORY,
   REACTION_REPOSITORY,
   TASTE_SHARE_REPOSITORY,
   USER_PANTRY_REPOSITORY,
@@ -65,6 +67,7 @@ export async function createTestApp(): Promise<TestApp> {
     [FAVORITE_REPOSITORY, new InMemoryFavoriteRepository()],
     [REACTION_REPOSITORY, new InMemoryReactionRepository()],
     [TASTE_SHARE_REPOSITORY, new InMemoryTasteShareRepository()],
+    [COCKTLE_GAME_REPOSITORY, new InMemoryCocktleGameRepository()],
     [USER_REPOSITORY, new InMemoryUserRepository()],
     [REFRESH_TOKEN_REPOSITORY, new InMemoryRefreshTokenRepository()],
     [LOGIN_FAILURE_REPOSITORY, new InMemoryLoginFailureRepository()],

@@ -5,3 +5,4 @@ export const USER_PANTRY_REPOSITORY = Symbol('UserPantryRepository');
 export const FAVORITE_REPOSITORY = Symbol('FavoriteRepository');
 export const REACTION_REPOSITORY = Symbol('ReactionRepository');
 export const TASTE_SHARE_REPOSITORY = Symbol('TasteShareRepository');
+export const COCKTLE_GAME_REPOSITORY = Symbol('CocktleGameRepository');
