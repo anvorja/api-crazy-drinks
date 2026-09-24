@@ -61,6 +61,7 @@ El `.env` real está en `.gitignore`.
 | TheCocktailDB   | `COCKTAILDB_BASE_URL`, `COCKTAILDB_API_KEY`, `COCKTAILDB_IMAGES_BASE_URL`, `COCKTAILDB_TIMEOUT_MS`, `COCKTAILDB_RETRIES`, `COCKTAILDB_CRAWL_CONCURRENCY`, `CATALOG_TTL_MS` |
 | PostgreSQL      | `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_POOL_MAX` |
 | Autenticación   | `JWT_SECRET` (mín. 32 caracteres), `JWT_ACCESS_TTL_SECONDS`, `REFRESH_TOKEN_TTL_DAYS` |
+| Protección HTTP | `RATE_LIMIT_ENABLED`, `RATE_LIMIT_STORE` (`memory` o `postgres`), `RATE_LIMIT_WINDOW_SECONDS`, `RATE_LIMIT_MAX`, `RATE_LIMIT_HEAVY_MAX`, `BODY_LIMIT_KB` |
 | Frontend (web)  | `CORS_ORIGINS`, `REFRESH_COOKIE_SAMESITE`, `REFRESH_COOKIE_SECURE`, `REFRESH_COOKIE_DOMAIN` (ver *Conectar un frontend*) |
 | Límite de login | `LOGIN_MAX_FAILURES_PER_ACCOUNT`, `LOGIN_MAX_FAILURES_PER_IP`, `LOGIN_LOCKOUT_WINDOW_SECONDS` |
 | Recuperar contraseña | `PASSWORD_RESET_URL` (página del frontend), `PASSWORD_RESET_TTL_MINUTES`, `PASSWORD_RESET_MAX_PER_ACCOUNT`, `PASSWORD_RESET_MAX_PER_IP`, `PASSWORD_RESET_WINDOW_SECONDS` |
@@ -274,6 +275,30 @@ docker run -d -p 8090:8090 --env-file .env api-drinks
   ejecutarla, y `.env` está en `.dockerignore`.
 - **Base de datos en tu máquina:** si Postgres corre en el host (`DB_HOST=localhost`), agrega
   `--network host`.
+
+## Protección HTTP
+
+- **Límite por IP:** es una ventana fija de `RATE_LIMIT_WINDOW_SECONDS`, con dos baldes.
+  - General: `RATE_LIMIT_MAX` peticiones por ventana.
+  - Costoso: `RATE_LIMIT_HEAVY_MAX`, para las tarjetas PNG/SVG y el autocompletado.
+  - Al pasarse, la API responde `429 RATE_LIMITED` con `Retry-After`. Cada respuesta lleva
+    `RateLimit-Limit`, `RateLimit-Remaining` y `RateLimit-Reset`.
+- **Qué se cuenta:** el límite corre en un middleware **antes** de la autenticación y de la base de
+  datos. No aplica a `/health`, `/docs`, los webhooks (ya van firmados) ni las peticiones `OPTIONS`
+  de CORS.
+- **Almacenamiento:** con `RATE_LIMIT_STORE=postgres`, el contador es un upsert atómico en
+  `rate_limit_hits`, compartido por todas las instancias. `memory` sirve para una sola instancia o
+  pruebas.
+- **Si el almacenamiento falla:** el límite **deja pasar** la petición y lo registra en el log. Así
+  una caída del contador nunca tumba la API.
+- **Detrás de un proxy:** pon `TRUST_PROXY=true` para limitar por la IP real del cliente y no por
+  la del proxy.
+- **Cabeceras de seguridad:** van con `helmet`. `Cross-Origin-Resource-Policy: cross-origin` permite
+  que el frontend cargue las tarjetas. No hay CSP porque la API solo responde JSON, y Swagger UI la
+  necesita desactivada.
+- **Tamaño del body:** JSON de hasta `BODY_LIMIT_KB`. Más grande responde `413 PAYLOAD_TOO_LARGE`.
+- **API keys:** además de este límite por IP, conservan su cuota diaria por plan, en los headers
+  `X-RateLimit-*`.
 
 ## Arquitectura
 

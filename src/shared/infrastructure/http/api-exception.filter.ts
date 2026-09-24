@@ -92,6 +92,8 @@ export class ApiExceptionFilter implements ExceptionFilter {
         error: exception.name,
       };
     }
+    const bodyError = bodyParserError(exception);
+    if (bodyError) return bodyError;
     this.logger.error(
       exception instanceof Error
         ? (exception.stack ?? exception.message)
@@ -104,4 +106,21 @@ export class ApiExceptionFilter implements ExceptionFilter {
       error: 'InternalError',
     };
   }
+}
+
+/**
+ * A body over BODY_LIMIT_KB: the JSON parser rejects it (http-errors, `type`) before Nest sees
+ * the request. (Invalid JSON already arrives as a 400 from Nest's Express adapter.)
+ */
+function bodyParserError(exception: unknown): ErrorBody | null {
+  const e = exception as { status?: unknown; type?: unknown };
+  if (e?.type === 'entity.too.large') {
+    return {
+      statusCode: HttpStatus.PAYLOAD_TOO_LARGE,
+      code: 'PAYLOAD_TOO_LARGE',
+      message: 'The request body is too large',
+      error: 'PayloadTooLarge',
+    };
+  }
+  return null;
 }

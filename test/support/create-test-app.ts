@@ -68,7 +68,12 @@ export interface TestApp {
 }
 
 /** Full app with every outbound adapter replaced by an in-memory fake. */
-export async function createTestApp(): Promise<TestApp> {
+/** `env` overrides TEST_ENV for this app only (e.g. a low rate limit). */
+export async function createTestApp(
+  options: { env?: Record<string, string> } = {},
+): Promise<TestApp> {
+  const previous = { ...process.env };
+  Object.assign(process.env, options.env);
   const source = new FakeDrinkSource();
   const pool = new FakePgPool();
   const mailer = new FakeMailer();
@@ -99,9 +104,14 @@ export async function createTestApp(): Promise<TestApp> {
   for (const [token, fake] of fakes)
     builder = builder.overrideProvider(token).useValue(fake);
 
-  const app = (
-    await builder.compile()
-  ).createNestApplication<NestExpressApplication>();
+  let app: NestExpressApplication;
+  try {
+    app = (
+      await builder.compile()
+    ).createNestApplication<NestExpressApplication>();
+  } finally {
+    process.env = previous;
+  }
   configureApp(app, app.get<Env>(ENV));
   setupOpenApi(app);
   await app.init();

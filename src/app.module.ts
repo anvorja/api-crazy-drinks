@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
 import { BillingModule } from './billing/infrastructure/billing.module.js';
 import { DrinksModule } from './drinks/infrastructure/drinks.module.js';
@@ -10,6 +10,20 @@ import { CacheControlInterceptor } from './shared/infrastructure/http/cache-cont
 import { ApiExceptionFilter } from './shared/infrastructure/http/api-exception.filter.js';
 import { IndexController } from './shared/infrastructure/http/index.controller.js';
 import { SystemModule } from './shared/infrastructure/system.module.js';
+import { ENV } from './shared/infrastructure/config/config.module.js';
+import type { Env } from './shared/infrastructure/config/env.js';
+import {
+  DRIZZLE,
+  type Database,
+} from './shared/infrastructure/database/database.module.js';
+import {
+  RATE_LIMIT_STORE,
+  RateLimitMiddleware,
+} from './shared/infrastructure/rate-limit/rate-limit.middleware.js';
+import {
+  InMemoryRateLimitStore,
+  PostgresRateLimitStore,
+} from './shared/infrastructure/rate-limit/rate-limit.store.js';
 import { MailModule } from './shared/infrastructure/mail/mail.module.js';
 import { VenuesModule } from './venues/infrastructure/venues.module.js';
 
@@ -29,6 +43,20 @@ import { VenuesModule } from './venues/infrastructure/venues.module.js';
   providers: [
     { provide: APP_FILTER, useClass: ApiExceptionFilter },
     { provide: APP_INTERCEPTOR, useClass: CacheControlInterceptor },
+    {
+      provide: RATE_LIMIT_STORE,
+      useFactory: (env: Env, db: Database) =>
+        env.RATE_LIMIT_STORE === 'postgres'
+          ? new PostgresRateLimitStore(db)
+          : new InMemoryRateLimitStore(),
+      inject: [ENV, DRIZZLE],
+    },
+    RateLimitMiddleware,
   ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer): void {
+    // First thing on every request: before authentication or any database work.
+    consumer.apply(RateLimitMiddleware).forRoutes('*path');
+  }
+}
