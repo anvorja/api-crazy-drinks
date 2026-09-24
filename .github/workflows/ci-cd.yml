@@ -1,6 +1,6 @@
 name: CI/CD
 
-# CI on every PR to main/develop (the rulesets require these three checks).
+# CI on every PR to main/develop. The rulesets require the three job names below as status checks.
 # CD on push to main/develop: publish the Docker image to GitHub Container Registry.
 on:
   pull_request:
@@ -19,7 +19,7 @@ permissions:
 jobs:
   quality:
     # The job name is the status check the rulesets require: keep them in sync.
-    name: Formato, análisis, pruebas y build
+    name: Calidad y build
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -29,20 +29,20 @@ jobs:
         run: pnpm format:check
       - name: Análisis de tipos (tsc)
         run: pnpm typecheck
+      - name: Lint (oxlint)
+        run: pnpm lint
       - name: Pruebas unitarias
         run: pnpm test
       - name: Build
         run: pnpm build
 
   tests:
-    name: Lint y pruebas
+    name: Pruebas e2e e integración
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup
-      - name: Lint (oxlint)
-        run: pnpm lint
       - name: Pruebas e2e (fakes en memoria, incluye verificación de OpenAPI)
         run: pnpm test:e2e
       - id: env
@@ -67,7 +67,7 @@ jobs:
         run: pnpm test:int
 
   docker:
-    name: Build dela imagen en docker
+    name: Imagen Docker
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
