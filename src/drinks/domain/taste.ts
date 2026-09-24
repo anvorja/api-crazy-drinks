@@ -67,34 +67,50 @@ function mostCommon<T>(values: T[]): T {
   return [...counts.entries()].sort((a, b) => b[1] - a[1])[0][0];
 }
 
-/** Averages the flavor DNA of the favorites. Null when there are none. */
-export function buildTasteProfile(favorites: Drink[]): TasteProfile | null {
-  if (favorites.length === 0) return null;
+/** Weight of a disliked drink against a liked one when learning the profile. */
+const DISLIKE_WEIGHT = 0.5;
+
+/**
+ * Learns the taste from liked drinks (favorites, likes, superlikes) and, with less weight,
+ * disliked ones. Null until there is at least one liked drink.
+ */
+export function buildTasteProfile(
+  liked: Drink[],
+  disliked: Drink[] = [],
+): TasteProfile | null {
+  if (liked.length === 0) return null;
 
   const sum = Object.fromEntries(
     FLAVOR_DIMENSIONS.map((d) => [d, 0]),
   ) as FlavorVector;
-  for (const drink of favorites) {
-    const vector = flavorVector(drink);
-    for (const dim of FLAVOR_DIMENSIONS) sum[dim] += vector[dim];
+  for (const [drinks, weight] of [
+    [liked, 1],
+    [disliked, -DISLIKE_WEIGHT],
+  ] as const) {
+    for (const drink of drinks) {
+      const vector = flavorVector(drink);
+      for (const dim of FLAVOR_DIMENSIONS) sum[dim] += weight * vector[dim];
+    }
   }
+  for (const dim of FLAVOR_DIMENSIONS) sum[dim] = Math.max(sum[dim], 0);
   const profile = normalizeProfile(sum);
   const dominant = dominantTraits(profile);
 
   const ingredientCounts = new Map<string, number>();
-  for (const drink of favorites) {
+  for (const drink of liked) {
     for (const key of ingredientKeys(drink)) {
       ingredientCounts.set(key, (ingredientCounts.get(key) ?? 0) + 1);
     }
   }
 
+  const signals = liked.length + disliked.length;
   return {
-    basedOn: favorites.length,
-    confidence: confidenceFor(favorites.length),
+    basedOn: signals,
+    confidence: confidenceFor(signals),
     profile,
     dominant,
     personality: describePersonality(dominant),
-    preferredStrength: mostCommon(favorites.map(strengthOf)),
+    preferredStrength: mostCommon(liked.map(strengthOf)),
     favoriteIngredients: [...ingredientCounts.entries()]
       .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
       .slice(0, TOP_INGREDIENTS)
@@ -108,15 +124,16 @@ export function buildTasteProfile(favorites: Drink[]): TasteProfile | null {
  */
 export function recommendForTaste(
   taste: TasteProfile,
-  favorites: Drink[],
+  liked: Drink[],
   candidates: Drink[],
   limit: number,
+  /** Drinks already seen (liked or disliked): never recommended again. */
+  seenIds: Set<string> = new Set(liked.map((d) => d.id)),
 ): Recommendation[] {
-  const favoriteIds = new Set(favorites.map((d) => d.id));
-  const favored = new Set(favorites.flatMap((d) => [...ingredientKeys(d)]));
+  const favored = new Set(liked.flatMap((d) => [...ingredientKeys(d)]));
 
   return candidates
-    .filter((drink) => !favoriteIds.has(drink.id))
+    .filter((drink) => !seenIds.has(drink.id))
     .map((drink) => {
       const keys = [...ingredientKeys(drink)];
       const shared = keys.filter((k) => favored.has(k));

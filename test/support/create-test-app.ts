@@ -13,12 +13,14 @@ import {
 import { InMemoryDrinkRepository } from '../../src/drinks/infrastructure/persistence/in-memory/in-memory-drink.repository.js';
 import {
   InMemoryFavoriteRepository,
+  InMemoryReactionRepository,
   InMemoryUserPantryRepository,
 } from '../../src/drinks/infrastructure/persistence/in-memory/in-memory-personal.repositories.js';
 import {
   DRINK_REPOSITORY,
   DRINK_SOURCE,
   FAVORITE_REPOSITORY,
+  REACTION_REPOSITORY,
   USER_PANTRY_REPOSITORY,
 } from '../../src/drinks/infrastructure/tokens.js';
 import {
@@ -59,6 +61,7 @@ export async function createTestApp(): Promise<TestApp> {
     [DRINK_REPOSITORY, new InMemoryDrinkRepository()],
     [USER_PANTRY_REPOSITORY, new InMemoryUserPantryRepository()],
     [FAVORITE_REPOSITORY, new InMemoryFavoriteRepository()],
+    [REACTION_REPOSITORY, new InMemoryReactionRepository()],
     [USER_REPOSITORY, new InMemoryUserRepository()],
     [REFRESH_TOKEN_REPOSITORY, new InMemoryRefreshTokenRepository()],
     [LOGIN_FAILURE_REPOSITORY, new InMemoryLoginFailureRepository()],

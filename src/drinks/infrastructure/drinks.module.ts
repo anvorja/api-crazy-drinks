@@ -51,15 +51,26 @@ import { DrinksController } from './http/drinks.controller.js';
 import { LabController } from './http/lab.controller.js';
 import { MeDrinksController } from './http/me-drinks.controller.js';
 import { MeTasteController } from './http/me-taste.controller.js';
+import { DiscoverController } from './http/discover.controller.js';
+import { CollectTasteSignals } from '../application/taste-signals.js';
+import {
+  GetDiscoverDeck,
+  GetDiscoverStats,
+  ReactToDrink,
+  UndoReaction,
+} from '../application/use-cases/discover.js';
+import type { ReactionRepository } from '../domain/reactions.js';
 import { DrizzleDrinkRepository } from './persistence/drizzle/drizzle-drink.repository.js';
 import {
   DrizzleFavoriteRepository,
+  DrizzleReactionRepository,
   DrizzleUserPantryRepository,
 } from './persistence/drizzle/drizzle-personal.repositories.js';
 import {
   DRINK_REPOSITORY,
   DRINK_SOURCE,
   FAVORITE_REPOSITORY,
+  REACTION_REPOSITORY,
   USER_PANTRY_REPOSITORY,
 } from './tokens.js';
 
@@ -69,6 +80,7 @@ import {
     LabController,
     MeDrinksController,
     MeTasteController,
+    DiscoverController,
     AdminCatalogController,
   ],
   providers: [
@@ -167,13 +179,59 @@ import {
         new AddFavorite(r, g, clock),
       [FAVORITE_REPOSITORY, GetDrink, CLOCK],
     ),
-    provide(GetMyTasteProfile, (f: ListFavorites) => new GetMyTasteProfile(f), [
-      ListFavorites,
-    ]),
+    provide(
+      CollectTasteSignals,
+      (f: FavoriteRepository, r: ReactionRepository, c: DrinkCatalog) =>
+        new CollectTasteSignals(f, r, c),
+      [FAVORITE_REPOSITORY, REACTION_REPOSITORY, DrinkCatalog],
+    ),
+    provide(
+      GetMyTasteProfile,
+      (s: CollectTasteSignals) => new GetMyTasteProfile(s),
+      [CollectTasteSignals],
+    ),
     provide(
       RecommendForMyTaste,
-      (f: ListFavorites, c: DrinkCatalog) => new RecommendForMyTaste(f, c),
-      [ListFavorites, DrinkCatalog],
+      (s: CollectTasteSignals, c: DrinkCatalog) =>
+        new RecommendForMyTaste(s, c),
+      [CollectTasteSignals, DrinkCatalog],
+    ),
+
+    // Discover (swipe)
+    provide(
+      REACTION_REPOSITORY,
+      (db: Database) => new DrizzleReactionRepository(db),
+      [DRIZZLE],
+    ),
+    provide(
+      GetDiscoverDeck,
+      (s: CollectTasteSignals, c: DrinkCatalog) => new GetDiscoverDeck(s, c),
+      [CollectTasteSignals, DrinkCatalog],
+    ),
+    provide(
+      ReactToDrink,
+      (
+        r: ReactionRepository,
+        f: FavoriteRepository,
+        g: GetDrink,
+        s: CollectTasteSignals,
+        clock: Clock,
+      ) => new ReactToDrink(r, f, g, s, clock),
+      [
+        REACTION_REPOSITORY,
+        FAVORITE_REPOSITORY,
+        GetDrink,
+        CollectTasteSignals,
+        CLOCK,
+      ],
+    ),
+    provide(UndoReaction, (r: ReactionRepository) => new UndoReaction(r), [
+      REACTION_REPOSITORY,
+    ]),
+    provide(
+      GetDiscoverStats,
+      (r: ReactionRepository) => new GetDiscoverStats(r),
+      [REACTION_REPOSITORY],
     ),
     provide(RemoveFavorite, (r: FavoriteRepository) => new RemoveFavorite(r), [
       FAVORITE_REPOSITORY,

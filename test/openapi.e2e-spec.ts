@@ -69,6 +69,8 @@ describe('OpenAPI (e2e)', () => {
         'GET /drinks',
         'GET /drinks/facets',
         'GET /drinks/suggest',
+        'GET /discover/deck',
+        'PUT /discover/{drinkId}',
         'GET /me/taste',
         'GET /me/taste/recommendations',
       ]),

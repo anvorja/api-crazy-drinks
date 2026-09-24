@@ -1,3 +1,4 @@
+import { Reaction, ReactionRepository } from '../../../domain/reactions.js';
 import {
   Favorite,
   FavoriteRepository,
@@ -40,5 +41,25 @@ export class InMemoryFavoriteRepository implements FavoriteRepository {
     this.favorites = this.favorites.filter(
       (f) => f.userId !== userId || f.drinkId !== drinkId,
     );
+  }
+}
+
+export class InMemoryReactionRepository implements ReactionRepository {
+  private readonly reactions = new Map<string, Reaction>();
+
+  async save(reaction: Reaction): Promise<void> {
+    this.reactions.set(`${reaction.userId}:${reaction.drinkId}`, {
+      ...reaction,
+    });
+  }
+
+  async remove(userId: string, drinkId: string): Promise<void> {
+    this.reactions.delete(`${userId}:${drinkId}`);
+  }
+
+  async listByUser(userId: string): Promise<Reaction[]> {
+    return [...this.reactions.values()]
+      .filter((r) => r.userId === userId)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
   }
 }
