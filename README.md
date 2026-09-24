@@ -241,7 +241,7 @@ un job, hay que actualizar también los rulesets**, o los PR quedarán esperando
 
 | Job (status check) | Qué hace |
 | ------------------ | -------- |
-| **Calidad y build** | Todo lo que no necesita infraestructura, rápido: formato (`prettier --check`), tipos (`tsc --noEmit`), lint (`oxlint`), pruebas unitarias y `nest build` |
+| **Calidad y build** | Todo lo que no necesita infraestructura, rápido: formato (`prettier --check`), tipos (`tsc --noEmit`), lint (`oxlint`), pruebas unitarias, `nest build` y que el contrato OpenAPI y el cliente tipado estén regenerados (`openapi:check`) |
 | **Pruebas e2e e integración** | Pruebas e2e con fakes en memoria (incluida la verificación de OpenAPI) y, sobre un PostgreSQL efímero, migraciones y pruebas de integración |
 | **Imagen Docker** | Construye la imagen y hace una prueba de humo: arranca el contenedor y verifica que `/health` responda. En push a `main`/`develop` la **publica** en GitHub Container Registry (CD). |
 
@@ -374,6 +374,41 @@ En los tres casos, `CORS_ORIGINS` lleva la URL exacta del frontend, sin barra fi
 > tienden a hacerlo**: la sesión no sobreviviría a recargar la página. Por eso lo recomendado es
 > servir ambos bajo el mismo dominio, en subdominios distintos. Así la cookie es de primera parte
 > y funciona en todos los navegadores, incluso con `SameSite=Lax`.
+
+### Cliente tipado
+
+El contrato de la API está versionado en el repo:
+
+| Archivo | Qué es |
+| ------- | ------ |
+| `openapi/openapi.json` | El documento OpenAPI, el mismo que sirve `/docs/openapi.json` |
+| `openapi/api.d.ts` | Tipos TypeScript de todas las rutas, bodies, respuestas y errores, generados con `openapi-typescript` |
+
+```bash
+pnpm openapi:generate   # regenera ambos (no levanta el servidor ni toca la base de datos)
+pnpm openapi:check      # regenera y falla si difieren de lo commiteado
+```
+
+- **Al cambiar un endpoint** hay que correr `pnpm openapi:generate` y commitear el resultado. El job
+  *Calidad y build* del CI corre `openapi:check`, así que **un cambio de contrato que no se
+  regeneró no pasa**, y el cambio queda visible en el diff del PR.
+- **Qué comprueba `pnpm typecheck`:** `test/api-contract.typecheck.ts` usa los tipos como lo haría
+  el frontend, así que el typecheck falla si dejan de servir.
+
+**En el frontend**, copia `openapi/api.d.ts` (o genéralo desde la URL con
+`npx openapi-typescript https://api.midominio.com/docs/openapi.json -o src/api.d.ts --default-non-nullable false`)
+y úsalo con [`openapi-fetch`](https://openapi-ts.dev/openapi-fetch/):
+
+```ts
+import createClient from 'openapi-fetch';
+import type { paths } from './api';
+
+const api = createClient<paths>({ baseUrl: import.meta.env.VITE_API_URL, credentials: 'include' });
+
+const { data, error } = await api.GET('/v1/drinks/{id}', { params: { path: { id: '11007' } } });
+if (error?.code === 'AGE_RESTRICTED') mostrarAvisoDeEdad();   // `code` también está tipado
+data?.ingredients.map((i) => i.nameEs ?? i.name);              // autocompletado de todo
+```
 
 ## Reglas de negocio
 
@@ -617,4 +652,5 @@ pnpm test:int     # integración contra el Postgres de .env; cada prueba corre e
 pnpm typecheck
 pnpm lint
 pnpm format:check # lo mismo que exige el CI; `pnpm format` corrige
+pnpm openapi:check # el contrato OpenAPI y el cliente tipado están al día
 ```

@@ -35,6 +35,11 @@ jobs:
         run: pnpm test
       - name: Build
         run: pnpm build
+      - uses: ./.github/actions/ci-env
+      - name: Contrato OpenAPI y cliente tipado al día
+        # Regenerates openapi/openapi.json and openapi/api.d.ts: if they differ from the
+        # committed ones, the API contract changed without regenerating them.
+        run: pnpm openapi:check
 
   tests:
     name: Pruebas e2e e integración
