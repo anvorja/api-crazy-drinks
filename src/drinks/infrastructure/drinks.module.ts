@@ -56,6 +56,14 @@ import { MeDrinksController } from './http/me-drinks.controller.js';
 import { MeTasteController } from './http/me-taste.controller.js';
 import { DiscoverController } from './http/discover.controller.js';
 import { PublicTasteController } from './http/public-taste.controller.js';
+import { CocktleController } from './http/cocktle.controller.js';
+import {
+  GetCocktleStats,
+  GetTodayCocktle,
+  GuessCocktle,
+} from '../application/use-cases/cocktle.js';
+import type { CocktleGameRepository } from '../domain/cocktle.js';
+import { DrizzleCocktleGameRepository } from './persistence/drizzle/drizzle-cocktle.repository.js';
 import {
   CompareWithSharedTaste,
   GetMyTasteShare,
@@ -83,6 +91,7 @@ import {
   DRINK_REPOSITORY,
   DRINK_SOURCE,
   FAVORITE_REPOSITORY,
+  COCKTLE_GAME_REPOSITORY,
   REACTION_REPOSITORY,
   TASTE_SHARE_REPOSITORY,
   USER_PANTRY_REPOSITORY,
@@ -96,6 +105,7 @@ import {
     MeTasteController,
     DiscoverController,
     PublicTasteController,
+    CocktleController,
     AdminCatalogController,
   ],
   providers: [
@@ -249,6 +259,30 @@ import {
       (r: TasteShareRepository, s: CollectTasteSignals, c: DrinkCatalog) =>
         new CompareWithSharedTaste(r, s, c),
       [TASTE_SHARE_REPOSITORY, CollectTasteSignals, DrinkCatalog],
+    ),
+
+    // Cocktle (daily game)
+    provide(
+      COCKTLE_GAME_REPOSITORY,
+      (db: Database) => new DrizzleCocktleGameRepository(db),
+      [DRIZZLE],
+    ),
+    provide(
+      GetTodayCocktle,
+      (g: CocktleGameRepository, c: DrinkCatalog, clock: Clock) =>
+        new GetTodayCocktle(g, c, clock),
+      [COCKTLE_GAME_REPOSITORY, DrinkCatalog, CLOCK],
+    ),
+    provide(
+      GuessCocktle,
+      (g: CocktleGameRepository, c: DrinkCatalog, clock: Clock) =>
+        new GuessCocktle(g, c, clock),
+      [COCKTLE_GAME_REPOSITORY, DrinkCatalog, CLOCK],
+    ),
+    provide(
+      GetCocktleStats,
+      (g: CocktleGameRepository, clock: Clock) => new GetCocktleStats(g, clock),
+      [COCKTLE_GAME_REPOSITORY, CLOCK],
     ),
 
     // Discover (swipe)

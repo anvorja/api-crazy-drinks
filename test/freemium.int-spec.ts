@@ -1,3 +1,4 @@
+import { DrizzleCocktleGameRepository } from '../src/drinks/infrastructure/persistence/drizzle/drizzle-cocktle.repository.js';
 import { DrizzleTasteShareRepository } from '../src/drinks/infrastructure/persistence/drizzle/drizzle-taste-share.repository.js';
 import { randomUUID } from 'node:crypto';
 import { Pool } from 'pg';
@@ -189,5 +190,28 @@ describe('freemium repositories (Postgres)', () => {
       });
       await shares.removeByUser(user.id);
       expect(await shares.findByUser(user.id)).toBeNull();
+    }));
+
+  it('stores one Cocktle game per user, day and mode', () =>
+    inRollbackTransaction(pool, async (db) => {
+      const user = newUser();
+      await new DrizzleUserRepository(db).create(user);
+      const games = new DrizzleCocktleGameRepository(db);
+      const game = {
+        userId: user.id,
+        day: '2026-09-24',
+        mode: 'zero' as const,
+        guesses: ['1'],
+        solved: false,
+      };
+      await games.save(game);
+      await games.save({ ...game, guesses: ['1', '2'], solved: true });
+      await games.save({ ...game, mode: 'classic' });
+      expect(await games.find(user.id, '2026-09-24', 'zero')).toEqual({
+        ...game,
+        guesses: ['1', '2'],
+        solved: true,
+      });
+      expect(await games.listByUser(user.id, 'classic')).toHaveLength(1);
     }));
 });

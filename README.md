@@ -6,6 +6,8 @@ No es solo un buscador de recetas:
 - qué tomar según tu estado de ánimo;
 - cuál es el "ADN de sabor" de cada bebida y cuáles son sus gemelas;
 - guarda tu despensa y tus favoritos, y aprende de ellos **tu ADN de sabor** para recomendarte bebidas nuevas;
+- te deja descubrir bebidas con **swipe**, compartir tu ADN en una tarjeta y medir tu **compatibilidad** con amigos;
+- tiene un reto diario, **Cocktle**, para adivinar el coctel del día;
 - y a los bares les arma una **carta inteligente** con costo, precio sugerido y margen por coctel.
 
 Corre en el puerto definido por `PORT` (**8090** en `.env.example`).
@@ -72,7 +74,7 @@ pnpm db:studio                     # explorador visual
 
 | Contexto   | Tablas |
 | ---------- | ------ |
-| `drinks`   | `drinks`, `catalog_syncs`, `user_pantries`, `favorites`, `drink_reactions`, `taste_shares` |
+| `drinks`   | `drinks`, `catalog_syncs`, `user_pantries`, `favorites`, `drink_reactions`, `taste_shares`, `cocktle_games` |
 | `identity` | `users`, `refresh_tokens`, `login_failures`, `api_keys`, `api_usage` |
 | `billing`  | `plans` (sembrada por `0004_seed_plans.sql`), `subscriptions` |
 | `venues`   | `venues`, `venue_inventory` |
@@ -358,6 +360,31 @@ Descubrir bebidas deslizando tarjetas, estilo Tinder. Requiere una sesión.
 - **Tarjeta:** se dibuja como SVG y se convierte a PNG con `@resvg/resvg-js` (binarios precompilados,
   sin build nativo) en unos 30 ms. Usa la fuente DejaVu Sans incluida en `assets/fonts/`, con su
   licencia, porque escanear las fuentes del sistema tardaba segundos.
+
+### Cocktle (reto diario)
+
+Adivinar el coctel del día en 6 intentos, al estilo Wordle. Requiere una sesión. Para elegir cada
+intento, el frontend usa `GET /drinks/suggest`.
+
+| Endpoint | Para |
+| -------- | ---- |
+| `GET /cocktle/today?mode=` | La partida de hoy: pistas reveladas, intentos, y la respuesta y el texto para compartir cuando termina. |
+| `POST /cocktle/today/guesses` | `{ drinkId, mode? }`: un intento. |
+| `GET /cocktle/stats?mode=` | Partidas, victorias, racha actual y máxima, y distribución de intentos. |
+
+- **Modos:** `classic` usa todo el catálogo y es solo para adultos; `zero` usa solo bebidas sin
+  alcohol. El modo por defecto depende de la edad de quien juega. La respuesta es la misma para
+  todos cada día UTC, elegida por un hash del día, e independiente del coctel del día.
+- **Pistas:** van de lo abstracto a lo concreto, una más por cada fallo. Primero el ADN de sabor,
+  luego la categoría y la fuerza, el vaso, los ingredientes, más ingredientes y por último la forma
+  del nombre (`C _ _ _   _ _ _ _ _`).
+- **Cada intento dice:**
+  - la cercanía de sabor con la respuesta, de 0 a 100: 🟩 acierto, 🟨 80 o más, 🟧 50 o más, 🟥 frío;
+  - los ingredientes en común;
+  - si coinciden la categoría y el vaso.
+- **Al terminar:** se revela la respuesta y se genera un resultado para compartir sin spoilers,
+  por ejemplo `Cocktle 2026-09-24 · 3/6` con `🟥🟨🟩`.
+- **Rachas:** cuentan días consecutivos ganados. Si hoy aún no se ha jugado, la racha de ayer sigue viva.
 
 ### Carta inteligente: cómo se costea
 
