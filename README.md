@@ -106,6 +106,35 @@ git switch -c release/3.1.0 develop           # PR hacia main (Merge) y luego ha
 git switch -c hotfix/descripcion main         # PR hacia main (Merge) y luego hacia develop (Squash)
 ```
 
+### Configuración del repositorio en GitHub
+
+Hay dos capas. Hace falta entender cuál aplica a qué:
+
+| Capa | Dónde | Alcance |
+| ---- | ----- | ------- |
+| Métodos de merge permitidos | *Settings → General → Pull Requests* | **Todo el repositorio**, sin importar la rama por defecto |
+| Método permitido en cada rama | Rulesets (siguiente sección) | **Una rama** |
+
+Un PR solo puede usar un método que **ambas** capas permitan. Por eso el repositorio habilita merge
+y squash, y los rulesets restringen cada rama a uno. Si se deshabilita *Allow merge commits*, los
+PR hacia `main` se quedan sin ningún método disponible.
+
+| Ajuste | Valor | Por qué |
+| ------ | ----- | ------- |
+| *Default branch* | `develop` | En Gitflow el trabajo diario apunta a `develop`, así que los PR nuevos van ahí por defecto. |
+| *Allow merge commits* | ✔ · mensaje: **Pull request title** | Lo necesita `main` para recibir releases y hotfixes. |
+| *Allow squash merging* | ✔ · mensaje: **Pull request title** | Lo necesita `develop` para recibir features. |
+| *Allow rebase merging* | ✗ | No se usa. |
+| *Automatically delete head branches* | ✔ | Borra la rama `feature/*`, `release/*` o `hotfix/*` al mergear su PR (se puede restaurar desde el PR). |
+
+**Convención: el título del PR es el mensaje del commit.**
+- **En `develop`:** cada feature queda como un solo commit con el título del PR, por ejemplo
+  `feat: despensa guardada por usuario (#12)`.
+- **En `main`:** cada merge marca una versión, así que `git log --first-parent main` se lee como
+  una lista de versiones, por ejemplo `Release 3.1.0 (#15)` o `Hotfix: bloqueo de login con 429 (#16)`.
+
+Por eso los PR se titulan con cuidado. El título se puede corregir en el diálogo de merge antes de confirmar.
+
 ### Rulesets de GitHub
 
 `main` y `develop` están protegidas con rulesets. Sus definiciones están versionadas en
