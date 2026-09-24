@@ -49,4 +49,20 @@ export class DrizzleUserRepository implements UserRepository {
       .offset(offset);
     return records.map(toDomain);
   }
+
+  async updatePassword(id: string, passwordHash: string): Promise<void> {
+    await this.db
+      .update(usersTable)
+      .set({ passwordHash })
+      .where(eq(usersTable.id, id));
+  }
+
+  async updateName(id: string, name: string): Promise<void> {
+    await this.db.update(usersTable).set({ name }).where(eq(usersTable.id, id));
+  }
+
+  /** Foreign keys cascade: sessions, favorites, swipes, venues, keys, subscription… */
+  async delete(id: string): Promise<void> {
+    await this.db.delete(usersTable).where(eq(usersTable.id, id));
+  }
 }

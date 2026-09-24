@@ -77,12 +77,34 @@ const schema = z
     LOGIN_MAX_FAILURES_PER_IP: z.coerce.number().int().min(1),
     LOGIN_LOCKOUT_WINDOW_SECONDS: z.coerce.number().int().min(1),
 
+    /** Frontend page that finishes a password reset; the email links to it with ?token=… */
+    PASSWORD_RESET_URL: z.url(),
+    PASSWORD_RESET_TTL_MINUTES: z.coerce.number().int().min(5).max(1440),
+    PASSWORD_RESET_MAX_PER_ACCOUNT: z.coerce.number().int().min(1),
+    PASSWORD_RESET_MAX_PER_IP: z.coerce.number().int().min(1),
+    PASSWORD_RESET_WINDOW_SECONDS: z.coerce.number().int().min(60),
+
+    /** log: prints emails (development). smtp: sends them. */
+    MAIL_TRANSPORT: z.enum(['log', 'smtp']),
+    MAIL_FROM: z.string().min(3),
+    SMTP_HOST: optional(z.string().min(1)),
+    SMTP_PORT: optional(z.coerce.number().int().positive()),
+    SMTP_SECURE: booleanString,
+    SMTP_USER: optional(z.string().min(1)),
+    SMTP_PASSWORD: optional(z.string().min(1)),
+
     // Optional operator account created/promoted on boot. All four or none.
     ADMIN_EMAIL: optional(z.email()),
     ADMIN_PASSWORD: optional(z.string().min(1)),
     ADMIN_NAME: optional(z.string().min(1)),
     ADMIN_BIRTH_DATE: optional(isoDate),
   })
+  .refine(
+    (env) => env.MAIL_TRANSPORT !== 'smtp' || (env.SMTP_HOST && env.SMTP_PORT),
+    {
+      message: 'MAIL_TRANSPORT=smtp requires SMTP_HOST and SMTP_PORT',
+    },
+  )
   .refine(
     (env) =>
       env.REFRESH_COOKIE_SAMESITE !== 'none' || env.REFRESH_COOKIE_SECURE,

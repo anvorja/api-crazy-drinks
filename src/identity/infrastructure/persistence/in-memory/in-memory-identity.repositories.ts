@@ -1,4 +1,8 @@
 import {
+  PasswordReset,
+  PasswordResetRepository,
+} from '../../../domain/password-reset.js';
+import {
   ApiKey,
   ApiKeyRepository,
   ApiUsageRepository,
@@ -41,6 +45,20 @@ export class InMemoryUserRepository implements UserRepository {
   }): Promise<User[]> {
     return [...this.users.values()].slice(offset, offset + limit);
   }
+
+  async updatePassword(id: string, passwordHash: string): Promise<void> {
+    const user = this.users.get(id);
+    if (user) this.users.set(id, { ...user, passwordHash });
+  }
+
+  async updateName(id: string, name: string): Promise<void> {
+    const user = this.users.get(id);
+    if (user) this.users.set(id, { ...user, name });
+  }
+
+  async delete(id: string): Promise<void> {
+    this.users.delete(id);
+  }
 }
 
 export class InMemoryRefreshTokenRepository implements RefreshTokenRepository {
@@ -66,6 +84,12 @@ export class InMemoryRefreshTokenRepository implements RefreshTokenRepository {
   async revokeFamily(familyId: string, at: Date): Promise<void> {
     for (const token of this.tokens.values()) {
       if (token.familyId === familyId && !token.revokedAt) token.revokedAt = at;
+    }
+  }
+
+  async revokeAllForUser(userId: string, at: Date): Promise<void> {
+    for (const token of this.tokens.values()) {
+      if (token.userId === userId && !token.revokedAt) token.revokedAt = at;
     }
   }
 }
@@ -130,5 +154,32 @@ export class InMemoryApiUsageRepository implements ApiUsageRepository {
 
   async get(userId: string, day: string): Promise<number> {
     return this.counts.get(`${userId}:${day}`) ?? 0;
+  }
+}
+
+export class InMemoryPasswordResetRepository implements PasswordResetRepository {
+  private readonly resets = new Map<string, PasswordReset>();
+
+  async create(reset: PasswordReset): Promise<void> {
+    this.resets.set(reset.id, { ...reset });
+  }
+
+  async findByHash(tokenHash: string): Promise<PasswordReset | null> {
+    return (
+      [...this.resets.values()].find((r) => r.tokenHash === tokenHash) ?? null
+    );
+  }
+
+  async markUsed(id: string, at: Date): Promise<boolean> {
+    const reset = this.resets.get(id);
+    if (!reset || reset.usedAt) return false;
+    reset.usedAt = at;
+    return true;
+  }
+
+  async invalidateForUser(userId: string, at: Date): Promise<void> {
+    for (const reset of this.resets.values()) {
+      if (reset.userId === userId && !reset.usedAt) reset.usedAt = at;
+    }
   }
 }

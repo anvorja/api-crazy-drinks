@@ -1,6 +1,7 @@
 import {
   ageOn,
   assertPasswordPolicy,
+  cleanName,
   isAdult,
   normalizeEmail,
 } from './user.js';
@@ -29,5 +30,10 @@ describe('user rules', () => {
     expect(() => assertPasswordPolicy('short1')).toThrow();
     expect(() => assertPasswordPolicy('onlyletters')).toThrow();
     expect(() => assertPasswordPolicy('letters-and-123')).not.toThrow();
+  });
+
+  it('cleans names', () => {
+    expect(cleanName('  Ana   María ')).toBe('Ana María');
+    expect(() => cleanName('   ')).toThrow('name');
   });
 });

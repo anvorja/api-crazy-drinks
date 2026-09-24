@@ -37,6 +37,19 @@ export function assertPasswordPolicy(password: string): void {
   }
 }
 
+export const MAX_NAME_LENGTH = 100;
+
+export function cleanName(name: string): string {
+  const cleaned = name.trim().replace(/\s+/g, ' ');
+  if (!cleaned || cleaned.length > MAX_NAME_LENGTH) {
+    throw new ValidationError(
+      `The name needs 1 to ${MAX_NAME_LENGTH} characters`,
+      'INVALID_NAME',
+    );
+  }
+  return cleaned;
+}
+
 export function ageOn(birthDate: Date, today: Date): number {
   let age = today.getUTCFullYear() - birthDate.getUTCFullYear();
   const birthdayPassed =
