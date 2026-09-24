@@ -21,8 +21,10 @@ import {
   DRINK_SOURCE,
   FAVORITE_REPOSITORY,
   REACTION_REPOSITORY,
+  TASTE_SHARE_REPOSITORY,
   USER_PANTRY_REPOSITORY,
 } from '../../src/drinks/infrastructure/tokens.js';
+import { InMemoryTasteShareRepository } from '../../src/drinks/infrastructure/persistence/in-memory/in-memory-taste-share.repository.js';
 import {
   InMemoryApiKeyRepository,
   InMemoryApiUsageRepository,
@@ -62,6 +64,7 @@ export async function createTestApp(): Promise<TestApp> {
     [USER_PANTRY_REPOSITORY, new InMemoryUserPantryRepository()],
     [FAVORITE_REPOSITORY, new InMemoryFavoriteRepository()],
     [REACTION_REPOSITORY, new InMemoryReactionRepository()],
+    [TASTE_SHARE_REPOSITORY, new InMemoryTasteShareRepository()],
     [USER_REPOSITORY, new InMemoryUserRepository()],
     [REFRESH_TOKEN_REPOSITORY, new InMemoryRefreshTokenRepository()],
     [LOGIN_FAILURE_REPOSITORY, new InMemoryLoginFailureRepository()],

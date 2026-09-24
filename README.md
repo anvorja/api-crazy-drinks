@@ -72,7 +72,7 @@ pnpm db:studio                     # explorador visual
 
 | Contexto   | Tablas |
 | ---------- | ------ |
-| `drinks`   | `drinks`, `catalog_syncs`, `user_pantries`, `favorites`, `drink_reactions` |
+| `drinks`   | `drinks`, `catalog_syncs`, `user_pantries`, `favorites`, `drink_reactions`, `taste_shares` |
 | `identity` | `users`, `refresh_tokens`, `login_failures`, `api_keys`, `api_usage` |
 | `billing`  | `plans` (sembrada por `0004_seed_plans.sql`), `subscriptions` |
 | `venues`   | `venues`, `venue_inventory` |
@@ -341,6 +341,23 @@ Descubrir bebidas deslizando tarjetas, estilo Tinder. Requiere una sesión.
   - Ejemplos de razones: *"Coincide con tu lado dulce, cítrico e intenso"*,
     *"Comparte ingredientes con tus favoritos: light rum, lime juice"*.
 - **Edad:** respeta la verificación de edad. A un menor nunca se le recomienda alcohol.
+
+### ADN compartible y compatibilidad
+
+| Endpoint | Acceso | Para |
+| -------- | ------ | ---- |
+| `PUT /me/taste/share` | Sesión | Activa un enlace público con un slug aleatorio y el **nombre que el usuario elija** (nunca su email ni su id). Llamarlo de nuevo lo renombra y conserva el enlace. |
+| `GET` / `DELETE /me/taste/share` | Sesión | Ver o desactivar el enlace. Desactivarlo lo invalida. |
+| `GET /taste/{slug}` | Público | Perfil compartido, siempre actualizado. |
+| `GET /taste/{slug}/card.png` · `.svg` | Público | **Tarjeta para compartir** de 1200×630: radar de los 9 sabores, personalidad e ingredientes favoritos. El PNG es para `og:image`, la vista previa en WhatsApp, X o Instagram. |
+| `GET /me/taste/compatibility/{slug}` | Sesión | Compatibilidad con un amigo: puntaje, titular ("74 % compatibles · Muy compatibles: los dos son del lado dulce, cítrico…"), rasgos en común y diferentes, y **3 cocteles puente**. |
+
+- **Puntaje:** 75 % similitud de sabor (coseno) + 25 % ingredientes favoritos en común.
+- **Cocteles puente:** bebidas que ninguno de los dos ha visto, ordenadas por el gusto del menos
+  entusiasta de los dos, para que ambos queden contentos. Respetan la edad de quien consulta.
+- **Tarjeta:** se dibuja como SVG y se convierte a PNG con `@resvg/resvg-js` (binarios precompilados,
+  sin build nativo) en unos 30 ms. Usa la fuente DejaVu Sans incluida en `assets/fonts/`, con su
+  licencia, porque escanear las fuentes del sistema tardaba segundos.
 
 ### Carta inteligente: cómo se costea
 

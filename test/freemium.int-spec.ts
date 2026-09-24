@@ -1,3 +1,4 @@
+import { DrizzleTasteShareRepository } from '../src/drinks/infrastructure/persistence/drizzle/drizzle-taste-share.repository.js';
 import { randomUUID } from 'node:crypto';
 import { Pool } from 'pg';
 import {
@@ -167,5 +168,26 @@ describe('freemium repositories (Postgres)', () => {
       ]);
       await reactions.remove(user.id, drinkId);
       expect(await reactions.listByUser(user.id)).toEqual([]);
+    }));
+
+  it('stores one share per user with a unique slug', () =>
+    inRollbackTransaction(pool, async (db) => {
+      const user = newUser();
+      await new DrizzleUserRepository(db).create(user);
+      const shares = new DrizzleTasteShareRepository(db);
+      const share = {
+        userId: user.id,
+        slug: randomUUID().slice(0, 12),
+        displayName: 'Ana',
+        createdAt: new Date('2026-01-01T00:00:00Z'),
+      };
+      await shares.save(share);
+      await shares.save({ ...share, displayName: 'Ana M.' });
+      expect(await shares.findBySlug(share.slug)).toEqual({
+        ...share,
+        displayName: 'Ana M.',
+      });
+      await shares.removeByUser(user.id);
+      expect(await shares.findByUser(user.id)).toBeNull();
     }));
 });
