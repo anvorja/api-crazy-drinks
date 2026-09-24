@@ -35,7 +35,7 @@ jobs:
         run: pnpm build
 
   tests:
-    name: lint y pruebas
+    name: Lint y pruebas
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -67,7 +67,7 @@ jobs:
         run: pnpm test:int
 
   docker:
-    name: build dela imagen en docker
+    name: Build dela imagen en docker
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:

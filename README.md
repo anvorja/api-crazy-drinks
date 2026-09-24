@@ -115,15 +115,16 @@ git switch -c hotfix/descripcion main         # PR hacia main (Merge) y luego ha
 | ----- | ------ | --------- |
 | Require a pull request before merging | ✔ | ✔ |
 | Allowed merge methods | merge | squash |
-| Require status checks to pass | los 3 checks de CI | los 3 checks de CI |
+| Require status checks to pass | los 3 checks de CI, solo de GitHub Actions | los 3 checks de CI, solo de GitHub Actions |
 | Block force pushes | ✔ | ✔ |
+| Restrict deletions (no se puede borrar la rama) | ✔ | ✔ |
 
 Los checks exigidos son los nombres de los jobs de `.github/workflows/ci-cd.yml`. **Si se renombra
 un job, hay que actualizar también los rulesets**, o los PR quedarán esperando un check que nunca llega.
 
 - `Formato, análisis, pruebas y build`
-- `lint y pruebas`
-- `build dela imagen en docker`
+- `Lint y pruebas`
+- `Build dela imagen en docker`
 
 ## CI/CD (GitHub Actions)
 
@@ -132,8 +133,8 @@ un job, hay que actualizar también los rulesets**, o los PR quedarán esperando
 | Job (status check) | Qué hace |
 | ------------------ | -------- |
 | **Formato, análisis, pruebas y build** | `prettier --check`, `tsc --noEmit`, pruebas unitarias y `nest build` |
-| **lint y pruebas** | `oxlint`, pruebas e2e (incluida la verificación de OpenAPI) y, sobre un PostgreSQL efímero, migraciones y pruebas de integración |
-| **build dela imagen en docker** | Construye la imagen y hace una prueba de humo: arranca el contenedor y verifica que `/health` responda. En push a `main`/`develop` la **publica** en GitHub Container Registry (CD). |
+| **Lint y pruebas** | `oxlint`, pruebas e2e (incluida la verificación de OpenAPI) y, sobre un PostgreSQL efímero, migraciones y pruebas de integración |
+| **Build dela imagen en docker** | Construye la imagen y hace una prueba de humo: arranca el contenedor y verifica que `/health` responda. En push a `main`/`develop` la **publica** en GitHub Container Registry (CD). |
 
 - **Configuración:** el CI no tiene configuración propia. Parte de `.env.example`
   (`.github/actions/ci-env`) y genera en cada ejecución los secretos que faltan (contraseña del
