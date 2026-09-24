@@ -1,6 +1,8 @@
 import {
+  bigint,
   boolean,
   char,
+  index,
   integer,
   numeric,
   pgEnum,
@@ -9,6 +11,7 @@ import {
   timestamp,
   uuid,
 } from 'drizzle-orm/pg-core';
+import { PAYMENT_STATUSES } from '../../../domain/payment.js';
 import { usersTable } from '../../../../identity/infrastructure/persistence/drizzle/identity.schema.js';
 
 /** Plan catalog. Rows are seeded by a migration; limits are data, not code. */
@@ -46,3 +49,26 @@ export const subscriptionsTable = pgTable('subscriptions', {
   }).notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull(),
 });
+
+export const paymentStatusEnum = pgEnum('payment_status', PAYMENT_STATUSES);
+
+export const paymentsTable = pgTable(
+  'payments',
+  {
+    id: uuid('id').primaryKey(),
+    reference: text('reference').notNull().unique(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => usersTable.id, { onDelete: 'cascade' }),
+    planId: text('plan_id')
+      .notNull()
+      .references(() => plansTable.id),
+    amountInCents: bigint('amount_in_cents', { mode: 'number' }).notNull(),
+    currency: char('currency', { length: 3 }).notNull(),
+    status: paymentStatusEnum('status').notNull(),
+    transactionId: text('transaction_id'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull(),
+  },
+  (t) => [index('payments_user_idx').on(t.userId)],
+);

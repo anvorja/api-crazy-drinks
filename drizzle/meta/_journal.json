@@ -64,6 +64,13 @@
       "when": 1790285615621,
       "tag": "0008_password_resets",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1790286002183,
+      "tag": "0009_payments",
+      "breakpoints": true
     }
   ]
 }

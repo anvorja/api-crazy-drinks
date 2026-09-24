@@ -6,12 +6,15 @@ import type { NestExpressApplication } from '@nestjs/platform-express';
 import { Test } from '@nestjs/testing';
 import { AppModule } from '../../src/app.module.js';
 import {
+  InMemoryPaymentRepository,
   InMemoryPlanRepository,
   InMemorySubscriptionRepository,
 } from '../../src/billing/infrastructure/persistence/in-memory/in-memory-billing.repositories.js';
 import {
+  PAYMENT_REPOSITORY,
   PLAN_REPOSITORY,
   SUBSCRIPTION_REPOSITORY,
+  WOMPI_GATEWAY,
 } from '../../src/billing/infrastructure/tokens.js';
 import { InMemoryDrinkRepository } from '../../src/drinks/infrastructure/persistence/in-memory/in-memory-drink.repository.js';
 import {
@@ -51,6 +54,7 @@ import { InMemoryVenueRepository } from '../../src/venues/infrastructure/persist
 import { VENUE_REPOSITORY } from '../../src/venues/infrastructure/tokens.js';
 import { FakeDrinkSource } from './fake-drink-source.js';
 import { FakeMailer } from './fake-mailer.js';
+import { FakeWompiGateway } from './fake-wompi.js';
 import { MAILER } from '../../src/shared/infrastructure/mail/mail.module.js';
 import { FakePgPool } from './fake-pg-pool.js';
 import { TEST_PLANS } from './plans.js';
@@ -60,6 +64,7 @@ export interface TestApp {
   source: FakeDrinkSource;
   pool: FakePgPool;
   mailer: FakeMailer;
+  wompi: FakeWompiGateway;
 }
 
 /** Full app with every outbound adapter replaced by an in-memory fake. */
@@ -67,6 +72,7 @@ export async function createTestApp(): Promise<TestApp> {
   const source = new FakeDrinkSource();
   const pool = new FakePgPool();
   const mailer = new FakeMailer();
+  const wompi = new FakeWompiGateway();
   const fakes: [symbol, unknown][] = [
     [PG_POOL, pool],
     [DRINK_SOURCE, source],
@@ -85,6 +91,8 @@ export async function createTestApp(): Promise<TestApp> {
     [API_USAGE_REPOSITORY, new InMemoryApiUsageRepository()],
     [PLAN_REPOSITORY, new InMemoryPlanRepository(TEST_PLANS)],
     [SUBSCRIPTION_REPOSITORY, new InMemorySubscriptionRepository()],
+    [PAYMENT_REPOSITORY, new InMemoryPaymentRepository()],
+    [WOMPI_GATEWAY, wompi],
     [VENUE_REPOSITORY, new InMemoryVenueRepository()],
   ];
   let builder = Test.createTestingModule({ imports: [AppModule] });
@@ -97,5 +105,5 @@ export async function createTestApp(): Promise<TestApp> {
   configureApp(app, app.get<Env>(ENV));
   setupOpenApi(app);
   await app.init();
-  return { app, source, pool, mailer };
+  return { app, source, pool, mailer, wompi };
 }
