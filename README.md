@@ -88,9 +88,34 @@ pnpm db:studio                     # explorador visual
 | Contexto   | Tablas |
 | ---------- | ------ |
 | `drinks`   | `drinks` (sembrada por `0011_seed_drinks_catalog.sql`; imágenes en Cloudinary por `0012_images_cloudinary.sql`), `catalog_syncs`, `user_pantries`, `favorites`, `drink_reactions`, `taste_shares`, `cocktle_games` |
-| `identity` | `users`, `refresh_tokens`, `login_failures`, `api_keys`, `api_usage`, `password_resets` |
+| `identity` | `users` (cuentas demo en `0013_seed_demo_users.sql`), `refresh_tokens`, `login_failures`, `api_keys`, `api_usage`, `password_resets` |
 | `billing`  | `plans` (sembrada por `0004_seed_plans.sql`), `subscriptions`, `payments` |
 | `venues`   | `venues`, `venue_inventory` |
+
+### Cuentas demo
+
+La migración `drizzle/0013_seed_demo_users.sql` crea cuentas de prueba con datos sintéticos, para la
+evaluación académica. Viajan con las migraciones: cualquier base nueva (local, Railway…) las tiene
+tras `pnpm db:migrate` o con `MIGRATE_ON_START=true`, sin poblar nada a mano.
+
+Contraseña de todas: **`ApiDrinks2026`**, salvo la de Andrés Borja (`##AndresB1`).
+
+| Correo | Rol | Edad | Qué trae |
+| ------ | --- | ---- | -------- |
+| `admin.demo@api-drinks.local` | `admin` | adulto | Todo: roles, suscripciones, cualquier bar |
+| `premium@api-drinks.local` | `premium` | adulto | Laura: 6 favoritos, 9 swipes, despensa, ADN compartido en `/v1/taste/laura-demo-adn` y 5 partidas de Cocktle. Su ADN ("El ácido rebelde con alma frutal") y sus recomendaciones salen de inmediato |
+| `bar@api-drinks.local` | `venue_owner` | adulto | Carlos: bar "La Barra Demo" (Cali, COP) con 18 insumos, plan **Pro** activo por un año desde la migración y su pago aprobado. La carta muestra costos, precios y márgenes |
+| `bartender@api-drinks.local` | `bartender` | adulto | Sin datos |
+| `basico@api-drinks.local` | `user` | adulto | Recién registrado: sin ADN todavía |
+| `menor@api-drinks.local` | `user` | 16 años | No ve bebidas con alcohol (`403 AGE_RESTRICTED`) |
+| `andres.vorja.vorja@gmail.com` | `user` | adulto | Sin datos |
+
+- **Tokens:** los JWT no se guardan: se obtienen con `POST /v1/auth/login`. En la base solo quedan
+  los usuarios con su contraseña cifrada con scrypt.
+- **Sin pisar nada:** si un correo ya existe, esa cuenta se omite, y sus datos también.
+- **Cuidado:** las contraseñas están en el repositorio, que es público. Sirven para una demo, no
+  para una instalación con usuarios reales. Si la API queda pública, cambia la contraseña de
+  cualquier cuenta que te importe con `PUT /v1/me/password`.
 
 ## Flujo de trabajo: Gitflow
 
