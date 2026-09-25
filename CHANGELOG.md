@@ -32,6 +32,9 @@ versión del contrato HTTP (`/v1`).
 - **Guía de pagos:** `docs/pagos-wompi.md` documenta el flujo de Wompi pantalla por pantalla, los
   datos de prueba, los problemas comunes y el registro de pruebas en sandbox (PSE y tarjetas
   aprobada y rechazada).
+- **`scripts/wompi-sandbox.sh`:** genera checkouts, verifica pagos y muestra el plan y el historial
+  de una cuenta. La guía explica cómo probar otros montos y planes, qué parámetros van en la firma
+  de integridad y los parámetros opcionales de Wompi.
 - **Documentación:** los datos de las bebidas son gratis. Los planes pagos cubren solo funciones
   propias (bares, inventario, carta con márgenes y API keys de bares).
 
