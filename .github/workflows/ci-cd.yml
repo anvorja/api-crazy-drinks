@@ -85,8 +85,8 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ghcr.io/${{ github.repository }}
+          # `latest` and version tags come from release-image.yml when a vX.Y.Z tag is pushed.
           tags: |
-            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
             type=ref,event=branch
             type=ref,event=pr
             type=sha
