@@ -435,7 +435,7 @@ docker compose --profile mail up -d   # además Mailpit para ver los correos: ht
 
 | Ambiente | Rama e imagen | Base de datos | Llaves |
 | -------- | ------------- | ------------- | ------ |
-| staging | `develop` | propia | Wompi **sandbox**; correo a Mailpit o a un proveedor de pruebas |
+| staging (Render + Netlify) | `develop` (`<sha>`) | propia (Render Postgres) | Wompi **sandbox**; correo a Mailpit o a un proveedor de pruebas |
 | producción | `main` (`latest`) | propia, con backups | Wompi **producción**, SMTP real |
 
 ### Checklist de producción
