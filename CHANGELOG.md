@@ -17,6 +17,12 @@ versión del contrato HTTP (`/v1`).
   `409 CATALOG_SOURCE_DISABLED`. Con `CATALOG_SOURCE=cocktaildb` se sincroniza como antes.
 - **Configuración:** las variables `COCKTAILDB_*` (salvo `COCKTAILDB_IMAGES_BASE_URL`) y
   `CATALOG_TTL_MS` solo se piden con `CATALOG_SOURCE=cocktaildb`.
+- **Imágenes en Cloudinary:** las fotos de bebidas (443) e ingredientes (299) se copiaron a
+  Cloudinary (`cocktailDB/`) con `scripts/upload-images-cloudinary.mjs`, y la migración
+  `0012_images_cloudinary.sql` apunta el catálogo a ellas. Los tamaños `small/medium/large` salen
+  de transformaciones de Cloudinary, en WebP o AVIF según el navegador.
+- **Autocompletado:** la foto de un ingrediente sale del catálogo, no de una URL armada con la
+  configuración. `COCKTAILDB_IMAGES_BASE_URL` solo se pide con `CATALOG_SOURCE=cocktaildb`.
 - **Documentación:** los datos de las bebidas son gratis. Los planes pagos cubren solo funciones
   propias (bares, inventario, carta con márgenes y API keys de bares).
 

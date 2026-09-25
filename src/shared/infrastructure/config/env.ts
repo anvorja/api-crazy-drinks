@@ -83,8 +83,8 @@ const schema = z
     CATALOG_SOURCE: z.enum(['snapshot', 'cocktaildb']),
     COCKTAILDB_BASE_URL: optional(z.url()),
     COCKTAILDB_API_KEY: optional(z.string().min(1)),
-    /** Drink and ingredient pictures: public static files, used in both modes. */
-    COCKTAILDB_IMAGES_BASE_URL: z.url(),
+    /** Ingredient pictures of the drinks it syncs (the snapshot's are on Cloudinary). */
+    COCKTAILDB_IMAGES_BASE_URL: optional(z.url()),
     COCKTAILDB_TIMEOUT_MS: optional(z.coerce.number().int().positive()),
     COCKTAILDB_RETRIES: optional(z.coerce.number().int().min(0).max(5)),
     COCKTAILDB_CRAWL_CONCURRENCY: optional(
@@ -152,6 +152,7 @@ const schema = z
       env.CATALOG_SOURCE !== 'cocktaildb' ||
       (env.COCKTAILDB_BASE_URL &&
         env.COCKTAILDB_API_KEY &&
+        env.COCKTAILDB_IMAGES_BASE_URL &&
         env.COCKTAILDB_TIMEOUT_MS &&
         env.COCKTAILDB_RETRIES !== undefined &&
         env.COCKTAILDB_CRAWL_CONCURRENCY &&

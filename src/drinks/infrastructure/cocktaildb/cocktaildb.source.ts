@@ -107,6 +107,6 @@ export function cocktailDbSourceFrom(env: Env): CocktailDbSource | null {
     timeoutMs: env.COCKTAILDB_TIMEOUT_MS!,
     crawlConcurrency: env.COCKTAILDB_CRAWL_CONCURRENCY!,
     retries: env.COCKTAILDB_RETRIES!,
-    imagesBaseUrl: env.COCKTAILDB_IMAGES_BASE_URL,
+    imagesBaseUrl: env.COCKTAILDB_IMAGES_BASE_URL!,
   });
 }

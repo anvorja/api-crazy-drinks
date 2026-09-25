@@ -11,7 +11,7 @@ import {
   glassEs,
   ingredientEs,
 } from '../../../domain/translations.js';
-import { drinkImageSizes } from '../../cocktaildb/images.js';
+import { drinkImageSizes } from './image-sizes.js';
 import {
   imageSizesSchema,
   ingredientResponseSchema,
@@ -188,7 +188,6 @@ export const toFacetsResponse = (
 
 export const toSuggestResponse = (
   suggestions: Suggestion[],
-  ingredientImage: (name: string) => string | null,
 ): z.infer<typeof suggestResponseSchema> =>
   suggestions.map((s) => ({
     kind: s.kind,
@@ -197,6 +196,6 @@ export const toSuggestResponse = (
     image:
       s.kind === 'drink'
         ? (drinkImageSizes(s.drink.image)?.small ?? null)
-        : ingredientImage(s.value),
+        : s.image,
     score: Math.round(s.score * 100) / 100,
   }));

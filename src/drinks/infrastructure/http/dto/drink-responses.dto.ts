@@ -5,7 +5,7 @@ import {
   glassEs,
   ingredientEs,
 } from '../../../domain/translations.js';
-import { drinkImageSizes } from '../../cocktaildb/images.js';
+import { drinkImageSizes } from './image-sizes.js';
 import { FLAVOR_DIMENSIONS, FlavorDna, Twin } from '../../../domain/flavor.js';
 
 export const ingredientResponseSchema = z
