@@ -155,17 +155,102 @@ documento.
 Nequi y los demás métodos tienen sus propios datos. La lista oficial está en
 [Datos de prueba en sandbox](https://docs.wompi.co/docs/colombia/datos-de-prueba-en-sandbox/).
 
+## Generar checkouts para pruebas
+
+### Regla: la URL la genera la API, no se arma a mano
+
+El `checkoutUrl` sale de `WompiGateway.checkoutUrl()`
+(`src/billing/infrastructure/wompi/wompi.gateway.ts`) cuando alguien llama a
+`POST /v1/me/subscription/checkout`. Armarla a mano no sirve para probar la API, por tres razones:
+
+- La **`reference`** (`drinks-<uuid>`) tiene que existir en la tabla `payments`. Si no existe,
+  `verify` responde `404 PAYMENT_NOT_FOUND`, aunque Wompi apruebe el pago.
+- La **firma** necesita `WOMPI_INTEGRITY_SECRET`, que solo debe estar en el servidor. Wompi
+  recomienda no calcularla nunca en el frontend.
+- El **monto** sale de la tabla `plans`. Si Wompi cobra otro monto, el pago queda en `error`.
+
+### Con el script `scripts/wompi-sandbox.sh`
+
+El script inicia sesión en cada llamada, así que el vencimiento del token no afecta:
+
+```bash
+scripts/wompi-sandbox.sh checkout basico@api-drinks.local ApiDrinks2026 pro        # imprime el checkoutUrl
+scripts/wompi-sandbox.sh checkout basico@api-drinks.local ApiDrinks2026 business   # otro plan
+scripts/wompi-sandbox.sh verify   basico@api-drinks.local ApiDrinks2026 <transactionId>
+scripts/wompi-sandbox.sh status   basico@api-drinks.local ApiDrinks2026            # plan e historial de pagos
+```
+
+- **API:** usa `http://localhost:$PORT`, con el `PORT` del `.env`. Para otra instancia:
+  `API_URL=http://localhost:8091 scripts/wompi-sandbox.sh …`.
+- **Cuentas:** sirve cualquier cuenta demo (ver README, *Cuentas demo*). El plan `free` no se puede
+  comprar (`400 PLAN_NOT_PURCHASABLE`).
+
+### Probar otros montos
+
+El monto es el precio del plan. Para probar otro monto en local, cambia el precio en **tu** base y
+genera un checkout nuevo:
+
+```sql
+UPDATE plans SET monthly_price = 1500 WHERE id = 'pro';   -- solo en tu base local
+```
+
+- **No edites la URL:** cambiar `amount-in-cents` en la URL no funciona. El monto va dentro de la
+  firma de integridad, así que la firma deja de coincidir y Wompi debería rechazar el checkout. Esa
+  es justamente la protección.
+- **Cambios permanentes:** van en una **migración nueva** (como `0004_seed_plans.sql`), nunca
+  editando una ya aplicada.
+- **Límites:** Wompi valida montos mínimos y máximos según el método de pago. Si un monto muy bajo
+  no deja pagar, sube el precio de prueba.
+
+### Parámetros del checkout
+
+Lo que envía la API hoy:
+
+| Parámetro | Valor | ¿Va en la firma? |
+| --------- | ----- | ---------------- |
+| `public-key` | `WOMPI_PUBLIC_KEY` | No |
+| `currency` | Moneda del plan (`COP`) | **Sí** |
+| `amount-in-cents` | Precio del plan × 100 | **Sí** |
+| `reference` | `drinks-<id del pago>` | **Sí** |
+| `signature:integrity` | `SHA256(reference + amount-in-cents + currency + WOMPI_INTEGRITY_SECRET)` | — |
+| `redirect-url` | `PAYMENTS_REDIRECT_URL` | No |
+| `customer-data:email` | Correo del usuario | No |
+
+Wompi acepta otros parámetros opcionales que la API todavía no envía (ver su
+[guía del Web Checkout](https://docs.wompi.co/docs/colombia/widget-checkout-web/)):
+
+- `expiration-time`: vencimiento en ISO 8601 UTC. **Si se usa, entra en la firma**:
+  `SHA256(reference + amount + currency + expiration-time + secreto)`.
+- `tax-in-cents:vat` y `tax-in-cents:consumption`: impuestos.
+- `customer-data:full-name`, `customer-data:phone-number`, `customer-data:phone-number-prefix`,
+  `customer-data:legal-id` y `customer-data:legal-id-type`: rellenan los datos del comprador.
+- `shipping-address:*`: dirección de envío.
+
+Para agregar uno, modifica `checkoutUrl()` en el adaptador y su prueba en `wompi.gateway.spec.ts`.
+Si el parámetro entra en la firma, cambia también el cálculo del hash.
+
+### Calcular una firma a mano (solo para explorar Wompi)
+
+Sirve para entender la firma o reproducir un problema, **no para probar la API**, porque la
+referencia no existirá en `payments`:
+
+```bash
+ref="prueba-$(date +%s)"; amount=150000; currency=COP
+printf '%s' "${ref}${amount}${currency}${WOMPI_INTEGRITY_SECRET}" | sha256sum | cut -d' ' -f1
+```
+
 ## Probar sin frontend
 
 1. Levanta la API con la configuración de arriba.
-2. Inicia sesión con una cuenta demo, por ejemplo `basico@api-drinks.local` / `ApiDrinks2026`,
-   desde Swagger (`/docs`) o con `curl`, y copia el `accessToken`.
-3. `POST /v1/me/subscription/checkout` con `{ "planId": "pro" }` y abre el `checkoutUrl`.
+2. Genera el checkout con `scripts/wompi-sandbox.sh checkout <email> <password> pro`, o a mano:
+   inicia sesión con una cuenta demo desde Swagger (`/docs`) y llama a
+   `POST /v1/me/subscription/checkout` con `{ "planId": "pro" }`.
+3. Abre el `checkoutUrl`.
 4. Paga con los datos de prueba.
 5. Al volver, el navegador no carga `lvh.me:5173` porque no hay frontend; es normal. Copia el `id`
    de la barra de direcciones.
-6. `POST /v1/me/payments/verify` con `{ "transactionId": "<id>" }` y revisa
-   `GET /v1/me/subscription`.
+6. Confírmalo con `scripts/wompi-sandbox.sh verify <email> <password> <id>` (o
+   `POST /v1/me/payments/verify`) y revisa el plan con `scripts/wompi-sandbox.sh status …`.
 
 Para comprobar lo que dice Wompi de una transacción, sin llaves, usa
 `curl https://sandbox.wompi.co/v1/transactions/<id>`.
