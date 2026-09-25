@@ -341,38 +341,46 @@ un job, hay que actualizar también los rulesets**, o los PR quedarán esperando
 | ------------------ | -------- |
 | **Calidad y build** | Todo lo que no necesita infraestructura, rápido: formato (`prettier --check`), tipos (`tsc --noEmit`), lint (`oxlint`), pruebas unitarias, `nest build` y que el contrato OpenAPI y el cliente tipado estén regenerados (`openapi:check`) |
 | **Pruebas e2e e integración** | Pruebas e2e con fakes en memoria (incluida la verificación de OpenAPI) y, sobre un PostgreSQL efímero, migraciones y pruebas de integración |
-| **Imagen Docker** | Construye la imagen y hace una prueba de humo: arranca el contenedor y verifica que `/health` responda. En push a `main`/`develop` la **publica** en GitHub Container Registry (CD). |
+| **Imagen Docker** | Construye la imagen y hace una prueba de humo: arranca el contenedor y verifica que `/health` responda |
 
-Los tres corren en paralelo.
+Los tres corren en paralelo. Con un push a `main` (el merge de un release) se agrega un cuarto job:
+
+| Job | Qué hace |
+| --- | -------- |
+| **Publicar y desplegar** | Espera a que pasen los tres checks. Toma **la misma imagen** que probó "Imagen Docker" (no la reconstruye), la sube a Docker Hub como `latest` y `<sha>`, y le pide a Render desplegar ese `<sha>`. Espera a que Render la deje en vivo: si el despliegue falla, el workflow falla |
 
 - **Configuración:** el CI no tiene configuración propia. Parte de `.env.example`
   (`.github/actions/ci-env`) y genera en cada ejecución los secretos que faltan (contraseña del
-  Postgres efímero, `JWT_SECRET`). No hay secretos escritos en el repositorio y no hace falta
-  configurar *secrets* en GitHub: la publicación usa el `GITHUB_TOKEN` automático.
-- **Tags de la imagen** `ghcr.io/<owner>/<repo>`:
+  Postgres efímero, `JWT_SECRET`). No hay secretos escritos en el repositorio.
+- **Secretos del CD** (_Settings → Secrets and variables → Actions_):
+
+  | Secreto | Qué es |
+  | ------- | ------ |
+  | `DOCKER_USERNAME` | Usuario de Docker Hub. La imagen es `<usuario>/api-drinks` |
+  | `DOCKER_TOKEN` | Access token de Docker Hub (_Account settings → Personal access tokens_, permiso _Read & Write_) |
+  | `RENDER_API_KEY` | API key de Render (_Account settings → API Keys_) |
+  | `RENDER_SERVICE_ID` | ID del web service (`srv-…`, está en su URL del panel) |
+
+- **Tags de la imagen** `docker.io/<usuario>/api-drinks`:
 
   | Tag | Cuándo se actualiza | Para |
   | --- | ------------------- | ---- |
-  | `latest` | Al publicar una versión (tag `vX.Y.Z`) | **Producción** (Render apunta aquí) |
-  | `4.0.0`, `4.0`, `4` | Al publicar esa versión | Fijar una versión o hacer rollback |
-  | `main` | Cada push a `main` | — |
-  | `develop` | Cada push a `develop` | Staging |
-  | `sha-<commit>` | Cada push | Una imagen exacta |
+  | `latest` | Cada push a `main` | La versión en producción |
+  | `<sha>` (7 caracteres) | Cada push a `main` | Una imagen exacta; es la que se despliega en Render |
+  | `5.0.0`, `5.0`, `5` | Al subir el tag `vX.Y.Z` | Fijar una versión o hacer rollback |
 
 - **Imagen de la versión** (`.github/workflows/release-image.yml`):
-  - **Qué hace:** al subir un tag `vX.Y.Z` **no reconstruye** la imagen. Toma la que el CI
-    construyó y probó para ese commit (`sha-<commit>`) y le agrega `X.Y.Z`, `X.Y`, `X` y `latest`.
-    Por eso **`latest` y la versión son la misma imagen, con el mismo *digest***.
+  - **Qué hace:** al subir un tag `vX.Y.Z` **no reconstruye** la imagen. Toma la que el CD publicó
+    para ese commit (`<sha>`) y le agrega `X.Y.Z`, `X.Y` y `X`. Por eso la versión y `latest` son
+    la misma imagen, con el mismo *digest*.
   - **Qué valida:** que el tag tenga formato `vX.Y.Z`, que coincida con la versión de
     `package.json` y que el commit esté en `main`. Si algo no cuadra, falla antes de publicar.
   - **Lanzarlo a mano:** también se ejecuta desde *Actions → Imagen de la versión → Run workflow*,
-    indicando el tag. Sirve para versiones etiquetadas antes de que existiera este workflow, o para
-    reintentar.
-  - **Render:** si el repo tiene el secreto `RENDER_DEPLOY_HOOK_URL` (*Settings → Secrets and
-    variables → Actions*), al terminar le pide a Render que despliegue. Render debe tener configurada
-    la imagen `ghcr.io/<owner>/<repo>:latest`. No hay que tocar nada al sacar una versión nueva.
-- **Despliegue:** el CD termina en la imagen publicada. Desplegarla en un servidor o una nube es el
-  siguiente paso cuando se defina dónde va a vivir la API.
+    indicando el tag.
+- **Render:** el web service es de tipo **imagen existente** (`docker.io/<usuario>/api-drinks`),
+  no de repositorio. Así Render no construye nada: ejecuta la imagen que el CI probó.
+  - **Rollback:** en Render, _Manual Deploy_ con un `<sha>` anterior; o re-ejecutar el workflow de
+    ese commit.
 
 ## Despliegue
 
@@ -388,8 +396,8 @@ docker compose --profile mail up -d   # además Mailpit para ver los correos: ht
 
 ### En una plataforma (Render, Railway, Fly.io, ECS, Cloud Run, Kubernetes…)
 
-- **Imagen:** la de GitHub Container Registry que publica el CD, `ghcr.io/<owner>/<repo>`, con tag
-  `develop` para staging y `latest` para producción.
+- **Imagen:** la que publica el CD en Docker Hub, `docker.io/<usuario>/api-drinks`. En Render se
+  despliega el `<sha>` de cada release; `latest` apunta a la misma.
 - **Base de datos:** un **PostgreSQL gestionado**, con backups automáticos y restauración a un
   punto en el tiempo.
 - **Configuración:** todas las variables como **secretos de la plataforma**; nunca un `.env` dentro
