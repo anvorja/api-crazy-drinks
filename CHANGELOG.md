@@ -5,6 +5,17 @@ Todos los cambios relevantes de api-drinks. Formato basado en
 [semántico](https://semver.org/lang/es/): la versión de la aplicación es independiente de la
 versión del contrato HTTP (`/v1`).
 
+## [Unreleased]
+
+### Añadido
+
+- **Frontend en local:** `docs/pagos-wompi.md` explica por qué en desarrollo todo debe correr en
+  `lvh.me` y no en `localhost`: si no, al volver de Wompi la cookie de sesión no viaja y el
+  usuario parece desconectado. Incluye la prueba de login y refresh contra la API en `lvh.me`.
+- **Propuesta de frontend:** `docs/propuesta_frontend.md` recoge el stack previsto (React + Vite +
+  TypeScript + shadcn/ui), el recorrido de la demo, el mapa de pantallas y la identidad visual.
+  El README lo menciona en *Conectar un frontend*. El frontend aún no se implementa.
+
 ## [5.0.0] - 2026-09-25
 
 La API queda autónoma para la evaluación académica. El catálogo, las imágenes y las cuentas demo

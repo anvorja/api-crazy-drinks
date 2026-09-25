@@ -575,6 +575,20 @@ src/<contexto>/
 
 La API y el frontend viven en dominios distintos. Esto es lo que el frontend necesita saber.
 
+> **Frontend previsto (aún no implementado):** probablemente **React + Vite + TypeScript +
+> shadcn/ui**, por tres razones:
+> - La API ya asume el puerto **5173** de Vite en CORS y en la URL de retorno de pagos.
+> - `openapi-fetch` usa directamente el `openapi/api.d.ts` que ya se genera: tipos de extremo a
+>   extremo sin escribirlos a mano.
+> - Encaja con **TanStack Query**, que maneja el caché y el scroll infinito.
+>
+> El recorrido de la demo, las pantallas y la identidad visual propuestos están en
+> [docs/propuesta_frontend.md](docs/propuesta_frontend.md).
+>
+> **En desarrollo, trabaja todo en `lvh.me`** (frontend en `http://lvh.me:5173` y API en
+> `http://lvh.me:8090`), no en `localhost`. Si no, al volver de un pago de Wompi el usuario pierde
+> la sesión. Ver [docs/pagos-wompi.md](docs/pagos-wompi.md), *Frontend en local*.
+
 ### Errores
 
 Todos los errores tienen la misma forma:
