@@ -1,4 +1,4 @@
-import { count, desc, eq, ilike, sql } from 'drizzle-orm';
+import { count, desc, eq, ilike, max, sql } from 'drizzle-orm';
 import type { PgDatabase, PgQueryResultHKT } from 'drizzle-orm/pg-core';
 import { Drink } from '../../../domain/drink.js';
 import { DrinkRepository } from '../../../domain/drink.repository.js';
@@ -13,14 +13,39 @@ const UPSERT_CHUNK = 200;
  */
 export class DrizzleDrinkRepository implements DrinkRepository {
   private cache: Drink[] | null = null;
+  private cacheSignature: string | null = null;
+  private checkedAt = 0;
 
-  constructor(private readonly db: PgDatabase<PgQueryResultHKT>) {}
+  /**
+   * @param revalidateMs how often to check whether another instance changed the catalog
+   *   (a cheap count + max(updated_at) query); 0 checks on every read.
+   */
+  constructor(
+    private readonly db: PgDatabase<PgQueryResultHKT>,
+    private readonly revalidateMs = 0,
+    private readonly now: () => number = Date.now,
+  ) {}
 
   async findAll(): Promise<Drink[]> {
-    this.cache ??= (await this.db.select().from(drinksTable)).map(
-      toDomainDrink,
-    );
+    if (this.cache && this.now() - this.checkedAt < this.revalidateMs)
+      return this.cache;
+    const signature = await this.signature();
+    this.checkedAt = this.now();
+    if (!this.cache || signature !== this.cacheSignature) {
+      this.cache = (await this.db.select().from(drinksTable)).map(
+        toDomainDrink,
+      );
+      this.cacheSignature = signature;
+    }
     return this.cache;
+  }
+
+  /** Changes whenever any instance inserts or updates drinks. */
+  private async signature(): Promise<string> {
+    const [row] = await this.db
+      .select({ total: count(), last: max(drinksTable.updatedAt) })
+      .from(drinksTable);
+    return `${row.total}:${row.last?.getTime() ?? 0}`;
   }
 
   async findById(id: string): Promise<Drink | null> {
@@ -65,13 +90,13 @@ export class DrizzleDrinkRepository implements DrinkRepository {
           },
         });
     }
+    // This instance changed it: reload on the next read (others notice via the signature).
     this.cache = null;
+    this.cacheSignature = null;
   }
 
   async count(): Promise<number> {
-    if (this.cache) return this.cache.length;
-    const [row] = await this.db.select({ total: count() }).from(drinksTable);
-    return row.total;
+    return (await this.findAll()).length;
   }
 
   async recordSync(at: Date): Promise<void> {

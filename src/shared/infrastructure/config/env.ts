@@ -83,6 +83,10 @@ const schema = z
     COCKTAILDB_RETRIES: z.coerce.number().int().min(0).max(5),
     COCKTAILDB_CRAWL_CONCURRENCY: z.coerce.number().int().min(1).max(20),
     CATALOG_TTL_MS: z.coerce.number().int().positive(),
+    /** How often each instance checks whether another one changed the cached catalog. */
+    CATALOG_CACHE_CHECK_SECONDS: z.coerce.number().int().min(0),
+    /** Apply pending migrations before starting (safe with several replicas: advisory lock). */
+    MIGRATE_ON_START: booleanString,
 
     ...databaseEnvSchema.shape,
 

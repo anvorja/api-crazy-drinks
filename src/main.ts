@@ -9,6 +9,7 @@ import {
   loadEnvFile,
   parseEnv,
 } from './shared/infrastructure/config/env.js';
+import { runMigrations } from './shared/infrastructure/database/run-migrations.js';
 import { configureApp } from './shared/infrastructure/http/configure-app.js';
 import {
   OPENAPI_UI_PATH,
@@ -17,12 +18,14 @@ import {
 
 async function bootstrap() {
   loadEnvFile();
-  const { LOG_FORMAT, LOG_LEVEL } = parseEnv();
+  const startEnv = parseEnv();
+  const { LOG_FORMAT, LOG_LEVEL } = startEnv;
   const levels = ['fatal', 'error', 'warn', 'log', 'debug', 'verbose'] as const;
   const consoleLogger = new ConsoleLogger({
     json: LOG_FORMAT === 'json',
     logLevels: levels.slice(0, levels.indexOf(LOG_LEVEL) + 1),
   });
+  if (startEnv.MIGRATE_ON_START) await runMigrations(startEnv);
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     logger: consoleLogger,
   });

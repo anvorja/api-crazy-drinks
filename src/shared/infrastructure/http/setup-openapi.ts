@@ -25,6 +25,9 @@ ADN de sabor, gemelos y carta inteligente para bares.
 - Integraciones de terceros: \`X-API-Key: <key>\` (ver /v1/me/api-keys). Cuentan contra la cuota diaria del plan
   y responden con los headers \`X-RateLimit-Limit\`, \`X-RateLimit-Remaining\` y \`X-RateLimit-Reset\`.
 
+**Fuente de datos**: recetas e imágenes de [TheCocktailDB](https://www.thecocktaildb.com/). Todo frontend que
+muestre bebidas debe mostrar "Datos e imágenes: TheCocktailDB" con un enlace a su sitio (condición de su uso).
+
 **Verificación de edad**: las bebidas con alcohol solo se muestran a usuarios autenticados mayores de 18 años.
 `;
 
