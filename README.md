@@ -747,7 +747,8 @@ Los valores iniciales son:
 ### Pagos (Wompi)
 
 [Wompi](https://docs.wompi.co) es de Bancolombia, cobra en COP y tiene un sandbox gratuito con
-tarjetas de prueba. Va detrás del puerto `PaymentGateway`, así que otra pasarela (Mercado Pago,
+tarjetas de prueba. **El flujo completo, pantalla por pantalla, con datos de prueba y problemas
+comunes, está en [docs/pagos-wompi.md](docs/pagos-wompi.md).** Va detrás del puerto `PaymentGateway`, así que otra pasarela (Mercado Pago,
 PayU…) sería otro adaptador.
 
 | Endpoint | Para |
@@ -786,9 +787,8 @@ PayU…) sería otro adaptador.
 5. Sin frontend, copia el `id` de la URL a la que vuelve Wompi y confírmalo con
    `POST /v1/me/payments/verify`.
 
-Probado en sandbox el 2026-09-25: un pago PSE aprobado de $89.000 activó el plan Pro por 30 días.
-Una segunda verificación no extendió el periodo, y otro usuario que intentó reclamar la misma
-transacción recibió `403`.
+Probado en sandbox el 2026-09-25 con PSE y con tarjetas aprobada y rechazada: el detalle está en el
+registro de pruebas de [docs/pagos-wompi.md](docs/pagos-wompi.md).
 
 ### Explorar el catálogo
 
