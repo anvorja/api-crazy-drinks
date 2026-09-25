@@ -7,6 +7,7 @@ import {
   ApiQueryFrom,
   ApiResponseFrom,
 } from '../../../shared/infrastructure/http/openapi.js';
+import { Cacheable } from '../../../shared/infrastructure/http/cache-control.js';
 import { ZodValidationPipe } from '../../../shared/infrastructure/http/zod-validation.pipe.js';
 import type { DrinkVisibility } from '../../domain/drink.js';
 import {
@@ -37,6 +38,7 @@ export class LabController {
   ) {}
 
   @Get('moods')
+  @Cacheable()
   @ApiOperation({ summary: 'Available moods' })
   @ApiResponseFrom(
     200,
@@ -66,6 +68,7 @@ export class LabController {
   }
 
   @Get('pantry')
+  @Cacheable()
   @ApiOperation({
     summary: 'Smart pantry',
     description:

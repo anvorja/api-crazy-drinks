@@ -1,4 +1,11 @@
-import { Controller, Get, HttpStatus, Inject, Res } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  HttpStatus,
+  Inject,
+  Res,
+  VERSION_NEUTRAL,
+} from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
 import type { Pool } from 'pg';
@@ -59,7 +66,7 @@ const timed = async (probe: () => Promise<unknown>): Promise<Check> => {
 };
 
 @ApiTags('Health')
-@Controller('health')
+@Controller({ path: 'health', version: VERSION_NEUTRAL })
 export class HealthController {
   constructor(
     @Inject(PG_POOL) private readonly pool: Pool,

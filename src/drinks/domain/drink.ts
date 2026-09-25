@@ -3,6 +3,8 @@ import { normalizeText } from '../../shared/domain/text.js';
 export interface Ingredient {
   name: string;
   measure: string | null;
+  /** Picture of the ingredient, when the source provides one. */
+  image?: string | null;
 }
 
 export interface Drink {

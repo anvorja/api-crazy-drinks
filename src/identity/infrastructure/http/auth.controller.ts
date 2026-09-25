@@ -6,7 +6,11 @@ import {
   HttpStatus,
   Ip,
   Post,
+  Req,
+  Res,
 } from '@nestjs/common';
+import type { Request, Response } from 'express';
+import { UnauthorizedError } from '../../../shared/domain/errors.js';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import {
   ApiBearer,
@@ -21,8 +25,21 @@ import {
   RefreshSession,
 } from '../../application/use-cases/sessions.js';
 import { GetProfile, RegisterUser } from '../../application/use-cases/users.js';
+import {
+  RequestPasswordReset,
+  ResetPassword,
+} from '../../application/use-cases/account.js';
+import type {
+  ForgotPasswordBodyDto,
+  ResetPasswordBodyDto,
+} from './dto/account.dto.js';
+import {
+  forgotPasswordBodySchema,
+  resetPasswordBodySchema,
+} from './dto/account.dto.js';
 import type { Principal } from '../../domain/principal.js';
 import { Authenticated, CurrentPrincipal } from './auth.decorators.js';
+import { RefreshCookie } from './refresh-cookie.js';
 import type {
   LoginBodyDto,
   RefreshTokenBodyDto,
@@ -49,7 +66,45 @@ export class AuthController {
     private readonly refreshSession: RefreshSession,
     private readonly logout: Logout,
     private readonly getProfile: GetProfile,
+    private readonly refreshCookie: RefreshCookie,
+    private readonly requestPasswordReset: RequestPasswordReset,
+    private readonly resetPassword: ResetPassword,
   ) {}
+
+  @Post('password/forgot')
+  @HttpCode(HttpStatus.ACCEPTED)
+  @ApiOperation({
+    summary: 'Forgot my password',
+    description:
+      'Always answers 202, whether the email exists or not (it never reveals accounts). If it exists, emails a single-use link to PASSWORD_RESET_URL?token=… that expires in minutes. Limited per email and per IP (429).',
+  })
+  @ApiBodyFrom(forgotPasswordBodySchema)
+  @ApiResponseFrom(202, null, 'If the account exists, the email is on its way')
+  @ApiErrors(400, 429)
+  async forgot(
+    @Body(new ZodValidationPipe(forgotPasswordBodySchema))
+    body: ForgotPasswordBodyDto,
+    @Ip() ip: string,
+  ) {
+    await this.requestPasswordReset.execute({ email: body.email, ip });
+  }
+
+  @Post('password/reset')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    summary: 'Reset my password',
+    description:
+      'With the token from the email. The link works once; afterwards every session is closed (log in with the new password).',
+  })
+  @ApiBodyFrom(resetPasswordBodySchema)
+  @ApiResponseFrom(204, null, 'Password changed')
+  @ApiErrors(400, 401)
+  async reset(
+    @Body(new ZodValidationPipe(resetPasswordBodySchema))
+    body: ResetPasswordBodyDto,
+  ) {
+    await this.resetPassword.execute(body);
+  }
 
   @Post('register')
   @ApiOperation({
@@ -71,7 +126,7 @@ export class AuthController {
   @ApiOperation({
     summary: 'Log in',
     description:
-      'Returns an access token and a refresh token. Repeated failures lock the account and the IP for a while (429 with Retry-After).',
+      'Returns a short-lived access token. By default the refresh token is set as an httpOnly cookie (send requests with credentials); ask for refreshTokenIn: "body" if you are not a browser. Repeated failures lock the account and the IP for a while (429 LOGIN_LOCKED with Retry-After).',
   })
   @ApiBodyFrom(loginBodySchema)
   @ApiResponseFrom(200, sessionResponseSchema, 'Session')
@@ -79,8 +134,16 @@ export class AuthController {
   async signIn(
     @Body(new ZodValidationPipe(loginBodySchema)) body: LoginBodyDto,
     @Ip() ip: string,
+    @Res({ passthrough: true }) res: Response,
   ) {
-    return toSessionResponse(await this.login.execute({ ...body, ip }));
+    const session = await this.login.execute({
+      email: body.email,
+      password: body.password,
+      ip,
+    });
+    if (body.refreshTokenIn === 'cookie')
+      this.refreshCookie.set(res, session.refreshToken);
+    return toSessionResponse(session, body.refreshTokenIn);
   }
 
   @Post('refresh')
@@ -88,7 +151,7 @@ export class AuthController {
   @ApiOperation({
     summary: 'Refresh the session',
     description:
-      'Rotates the refresh token. Reusing an already rotated token revokes every session of that login.',
+      'Uses the refresh token from the body or, if omitted, from the session cookie (only from the allowed frontend origins). The token rotates on every use; reusing an old one revokes every session of that login.',
   })
   @ApiBodyFrom(refreshTokenBodySchema)
   @ApiResponseFrom(200, sessionResponseSchema, 'New session')
@@ -96,17 +159,32 @@ export class AuthController {
   async refresh(
     @Body(new ZodValidationPipe(refreshTokenBodySchema))
     body: RefreshTokenBodyDto,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
   ) {
-    return toSessionResponse(
-      await this.refreshSession.execute(body.refreshToken),
-    );
+    const fromCookie = body.refreshToken
+      ? undefined
+      : this.refreshCookie.read(req);
+    const token = body.refreshToken ?? fromCookie;
+    if (!token) {
+      throw new UnauthorizedError(
+        'No refresh token: send it or use the session cookie',
+        'INVALID_REFRESH_TOKEN',
+      );
+    }
+    const deliverIn = body.refreshTokenIn ?? (fromCookie ? 'cookie' : 'body');
+    const session = await this.refreshSession.execute(token);
+    if (deliverIn === 'cookie')
+      this.refreshCookie.set(res, session.refreshToken);
+    return toSessionResponse(session, deliverIn);
   }
 
   @Post('logout')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
     summary: 'Log out',
-    description: 'Revokes the session. Idempotent.',
+    description:
+      'Revokes the session (token from the body or the cookie) and clears the cookie. Idempotent.',
   })
   @ApiBodyFrom(refreshTokenBodySchema)
   @ApiResponseFrom(204, null, 'Logged out')
@@ -114,8 +192,12 @@ export class AuthController {
   async signOut(
     @Body(new ZodValidationPipe(refreshTokenBodySchema))
     body: RefreshTokenBodyDto,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
   ) {
-    await this.logout.execute(body.refreshToken);
+    const token = body.refreshToken ?? this.refreshCookie.read(req);
+    if (token) await this.logout.execute(token);
+    this.refreshCookie.clear(res);
   }
 
   @Get('me')

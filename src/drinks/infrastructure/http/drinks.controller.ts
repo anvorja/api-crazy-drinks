@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Query } from '@nestjs/common';
+import { Controller, Get, Inject, Param, Query } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import {
   ApiErrors,
@@ -8,6 +8,26 @@ import {
   ApiResponseFrom,
 } from '../../../shared/infrastructure/http/openapi.js';
 import { ZodValidationPipe } from '../../../shared/infrastructure/http/zod-validation.pipe.js';
+import { Cacheable } from '../../../shared/infrastructure/http/cache-control.js';
+import { ENV } from '../../../shared/infrastructure/config/config.module.js';
+import type { Env } from '../../../shared/infrastructure/config/env.js';
+import {
+  ExploreDrinks,
+  GetDrinkFacets,
+  SuggestDrinks,
+} from '../../application/use-cases/explore.js';
+import { ingredientImage } from '../cocktaildb/images.js';
+import type { ExploreQueryDto, SuggestQueryDto } from './dto/explore.dto.js';
+import {
+  explorePageSchema,
+  exploreQuerySchema,
+  facetsResponseSchema,
+  suggestQuerySchema,
+  suggestResponseSchema,
+  toExplorePage,
+  toFacetsResponse,
+  toSuggestResponse,
+} from './dto/explore.dto.js';
 import type { DrinkVisibility } from '../../domain/drink.js';
 import {
   GetDrink,
@@ -55,9 +75,74 @@ export class DrinksController {
     private readonly getDrinkOfTheDay: GetDrinkOfTheDay,
     private readonly getFlavorDna: GetFlavorDna,
     private readonly findDrinkTwins: FindDrinkTwins,
+    private readonly exploreDrinks: ExploreDrinks,
+    private readonly getDrinkFacets: GetDrinkFacets,
+    private readonly suggestDrinks: SuggestDrinks,
+    @Inject(ENV) private readonly env: Env,
   ) {}
 
+  @Get()
+  @Cacheable()
+  @ApiOperation({
+    summary: 'Explore the catalog',
+    description: `Combinable filters and cursor pagination for infinite scroll: pass \`nextCursor\` as \`cursor\` to get the next page. Sorted by name. ${AGE_NOTE}`,
+  })
+  @ApiQueryFrom(exploreQuerySchema)
+  @ApiResponseFrom(200, explorePageSchema, 'A page of drink cards')
+  @ApiErrors(400, 503)
+  async explore(
+    @Query(new ZodValidationPipe(exploreQuerySchema)) query: ExploreQueryDto,
+    @ViewerVisibility() visibility: DrinkVisibility,
+  ) {
+    const { limit, cursor, ...filters } = query;
+    return toExplorePage(
+      await this.exploreDrinks.execute(
+        filters,
+        { limit, after: cursor ?? null },
+        visibility,
+      ),
+    );
+  }
+
+  @Get('facets')
+  @Cacheable()
+  @ApiOperation({
+    summary: 'Filter options',
+    description:
+      'Categories, glasses and most used ingredients with how many drinks each has (Spanish names included), to build the filters UI.',
+  })
+  @ApiResponseFrom(200, facetsResponseSchema, 'Facets')
+  @ApiErrors(503)
+  async facets(@ViewerVisibility() visibility: DrinkVisibility) {
+    return toFacetsResponse(await this.getDrinkFacets.execute(visibility));
+  }
+
+  @Get('suggest')
+  @Cacheable()
+  @ApiOperation({
+    summary: 'Autocomplete',
+    description:
+      'Drinks and ingredients matching what the user is typing, tolerant to typos ("margarta", "mojto"). Search-as-you-type friendly.',
+  })
+  @ApiQueryFrom(suggestQuerySchema)
+  @ApiResponseFrom(200, suggestResponseSchema, 'Suggestions, best first')
+  @ApiErrors(400, 503)
+  async suggest(
+    @Query(new ZodValidationPipe(suggestQuerySchema)) query: SuggestQueryDto,
+    @ViewerVisibility() visibility: DrinkVisibility,
+  ) {
+    const suggestions = await this.suggestDrinks.execute(
+      query.q,
+      query.limit,
+      visibility,
+    );
+    return toSuggestResponse(suggestions, (name) =>
+      ingredientImage(this.env.COCKTAILDB_IMAGES_BASE_URL, name),
+    );
+  }
+
   @Get('search')
+  @Cacheable()
   @ApiOperation({
     summary: 'Search drinks by name',
     description: `Searches TheCocktailDB and stores the results; falls back to the local catalog if it is down. ${AGE_NOTE}`,
@@ -91,6 +176,7 @@ export class DrinksController {
   }
 
   @Get('of-the-day')
+  @Cacheable()
   @ApiOperation({
     summary: 'Drink of the day',
     description: `The same drink for everyone during a UTC day. ${AGE_NOTE}`,
@@ -103,6 +189,7 @@ export class DrinksController {
   }
 
   @Get(':id')
+  @Cacheable()
   @ApiOperation({ summary: 'Drink detail', description: AGE_NOTE })
   @ApiParamFrom('id', drinkIdSchema, 'Drink id')
   @ApiResponseFrom(200, drinkResponseSchema, 'The drink')
@@ -115,6 +202,7 @@ export class DrinksController {
   }
 
   @Get(':id/dna')
+  @Cacheable()
   @ApiOperation({
     summary: 'Flavor DNA',
     description:
@@ -132,6 +220,7 @@ export class DrinksController {
   }
 
   @Get(':id/twins')
+  @Cacheable()
   @ApiOperation({
     summary: 'Twin drinks',
     description:

@@ -102,6 +102,7 @@ export class Login {
         throw new RateLimitedError(
           'Too many failed login attempts. Try again later.',
           Math.ceil(lockMs / 1000),
+          'LOGIN_LOCKED',
         );
       }
     }
@@ -121,7 +122,7 @@ export class Login {
         );
       }
       // Same error whether the email exists or not, to avoid account enumeration.
-      throw new UnauthorizedError(INVALID_CREDENTIALS);
+      throw new UnauthorizedError(INVALID_CREDENTIALS, 'INVALID_CREDENTIALS');
     }
     await this.failures.clear(`account:${email}`);
     return this.sessions.issue(user);
@@ -140,19 +141,22 @@ export class RefreshSession {
   async execute(refreshToken: string): Promise<Session> {
     const now = this.clock.now();
     const stored = await this.tokens.findByHash(this.opaque.hash(refreshToken));
-    if (!stored) throw new UnauthorizedError(INVALID_REFRESH);
+    if (!stored)
+      throw new UnauthorizedError(INVALID_REFRESH, 'INVALID_REFRESH_TOKEN');
 
-    if (stored.expiresAt <= now) throw new UnauthorizedError(INVALID_REFRESH);
+    if (stored.expiresAt <= now)
+      throw new UnauthorizedError(INVALID_REFRESH, 'INVALID_REFRESH_TOKEN');
 
     // Atomic: of two concurrent refreshes with the same token only one wins.
     if (stored.revokedAt || !(await this.tokens.revoke(stored.id, now))) {
       // A rotated token came back: it was stolen or leaked. Kill the whole family.
       await this.tokens.revokeFamily(stored.familyId, now);
-      throw new UnauthorizedError(INVALID_REFRESH);
+      throw new UnauthorizedError(INVALID_REFRESH, 'INVALID_REFRESH_TOKEN');
     }
 
     const user = await this.users.findById(stored.userId);
-    if (!user) throw new UnauthorizedError(INVALID_REFRESH);
+    if (!user)
+      throw new UnauthorizedError(INVALID_REFRESH, 'INVALID_REFRESH_TOKEN');
 
     // Reloading the user means role changes apply on the next refresh.
     return this.sessions.issue(user, stored.familyId);

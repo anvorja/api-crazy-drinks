@@ -20,16 +20,32 @@ export const registerBodySchema = z
   .meta({ id: 'RegisterRequest' });
 export type RegisterBodyDto = z.infer<typeof registerBodySchema>;
 
+/** Browsers: "cookie" (httpOnly, recommended). Native apps or scripts: "body". */
+const refreshTokenIn = z.enum(['cookie', 'body']).meta({
+  description:
+    'Where to deliver the refresh token. cookie (default): httpOnly cookie scoped to /v1/auth, unreadable by JavaScript. body: in the JSON, for clients without a browser.',
+});
+
 export const loginBodySchema = z
   .object({
     email: z.string().min(1).meta({ example: 'ana@example.com' }),
     password: z.string().min(1).meta({ example: 'secret-password-123' }),
+    refreshTokenIn: refreshTokenIn.default('cookie'),
   })
   .meta({ id: 'LoginRequest' });
 export type LoginBodyDto = z.infer<typeof loginBodySchema>;
 
 export const refreshTokenBodySchema = z
-  .object({ refreshToken: z.string().min(1) })
+  .object({
+    refreshToken: z
+      .string()
+      .min(1)
+      .optional()
+      .meta({ description: 'Omit it to use the session cookie' }),
+    refreshTokenIn: refreshTokenIn
+      .optional()
+      .meta({ description: 'Default: the same place the token came from' }),
+  })
   .meta({ id: 'RefreshTokenRequest' });
 export type RefreshTokenBodyDto = z.infer<typeof refreshTokenBodySchema>;
 

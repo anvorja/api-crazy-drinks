@@ -12,6 +12,8 @@ export interface CocktailDbConfig {
   crawlConcurrency: number;
   /** Extra attempts per request on timeouts/5xx, with linear backoff. */
   retries: number;
+  /** Base for ingredient pictures, e.g. https://www.thecocktaildb.com/images */
+  imagesBaseUrl: string;
 }
 
 // The free API has no "list all": the catalog is crawled by first letter.
@@ -29,7 +31,7 @@ export class CocktailDbSource implements DrinkSource {
     const worker = async () => {
       for (let key = queue.shift(); key; key = queue.shift()) {
         for (const dto of await this.getDrinks('search.php', { f: key })) {
-          const drink = toDomainDrink(dto);
+          const drink = toDomainDrink(dto, this.config.imagesBaseUrl);
           found.set(drink.id, drink);
         }
       }
@@ -43,18 +45,18 @@ export class CocktailDbSource implements DrinkSource {
 
   async findById(id: string): Promise<Drink | null> {
     const [dto] = await this.getDrinks('lookup.php', { i: id });
-    return dto ? toDomainDrink(dto) : null;
+    return dto ? toDomainDrink(dto, this.config.imagesBaseUrl) : null;
   }
 
   async searchByName(query: string): Promise<Drink[]> {
-    return (await this.getDrinks('search.php', { s: query })).map(
-      toDomainDrink,
+    return (await this.getDrinks('search.php', { s: query })).map((dto) =>
+      toDomainDrink(dto, this.config.imagesBaseUrl),
     );
   }
 
   async random(): Promise<Drink | null> {
     const [dto] = await this.getDrinks('random.php', {});
-    return dto ? toDomainDrink(dto) : null;
+    return dto ? toDomainDrink(dto, this.config.imagesBaseUrl) : null;
   }
 
   async ping(): Promise<number> {
@@ -86,7 +88,10 @@ export class CocktailDbSource implements DrinkSource {
       this.logger.warn(
         `TheCocktailDB request failed (${path}): ${String(error)}`,
       );
-      throw new UnavailableError('TheCocktailDB is not reachable right now');
+      throw new UnavailableError(
+        'TheCocktailDB is not reachable right now',
+        'CATALOG_UNAVAILABLE',
+      );
     }
   }
 }

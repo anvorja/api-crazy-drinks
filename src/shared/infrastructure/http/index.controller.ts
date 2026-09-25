@@ -1,4 +1,4 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, VERSION_NEUTRAL } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { z } from 'zod';
 import { APP_NAME, APP_VERSION } from '../app-info.js';
@@ -12,11 +12,14 @@ const indexSchema = z
     tagline: z.string(),
     docs: z.object({ ui: z.string(), openapi: z.string() }),
     source: z.string(),
+    attribution: z
+      .string()
+      .meta({ description: 'Show it wherever you display drinks' }),
   })
   .meta({ id: 'ApiIndex' });
 
 @ApiTags('Health')
-@Controller()
+@Controller({ version: VERSION_NEUTRAL })
 export class IndexController {
   @Get()
   @ApiOperation({
@@ -32,6 +35,8 @@ export class IndexController {
         'No te decimos qué tomar: te decimos quién eres cuando lo tomas.',
       docs: { ui: `/${OPENAPI_UI_PATH}`, openapi: `/${OPENAPI_JSON_PATH}` },
       source: 'https://www.thecocktaildb.com',
+      attribution:
+        'Recipe data and imagery: TheCocktailDB (https://www.thecocktaildb.com/)',
     };
   }
 }

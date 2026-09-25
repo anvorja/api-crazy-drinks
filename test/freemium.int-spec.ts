@@ -1,3 +1,6 @@
+import { DrizzlePaymentRepository } from '../src/billing/infrastructure/persistence/drizzle/drizzle-payment.repository.js';
+import { DrizzleCocktleGameRepository } from '../src/drinks/infrastructure/persistence/drizzle/drizzle-cocktle.repository.js';
+import { DrizzleTasteShareRepository } from '../src/drinks/infrastructure/persistence/drizzle/drizzle-taste-share.repository.js';
 import { randomUUID } from 'node:crypto';
 import { Pool } from 'pg';
 import {
@@ -7,6 +10,7 @@ import {
 import { DrizzleDrinkRepository } from '../src/drinks/infrastructure/persistence/drizzle/drizzle-drink.repository.js';
 import {
   DrizzleFavoriteRepository,
+  DrizzleReactionRepository,
   DrizzleUserPantryRepository,
 } from '../src/drinks/infrastructure/persistence/drizzle/drizzle-personal.repositories.js';
 import {
@@ -142,5 +146,104 @@ describe('freemium repositories (Postgres)', () => {
       expect(await favorites.list(user.id)).toHaveLength(1);
       await favorites.remove(user.id, drinkId);
       expect(await favorites.list(user.id)).toEqual([]);
+    }));
+
+  it('stores one reaction per user and drink', () =>
+    inRollbackTransaction(pool, async (db) => {
+      const user = newUser();
+      await new DrizzleUserRepository(db).create(user);
+      const drinkId = `test-${randomUUID()}`;
+      await new DrizzleDrinkRepository(db).saveMany([
+        { ...MOJITO, id: drinkId },
+      ]);
+
+      const reactions = new DrizzleReactionRepository(db);
+      const base = {
+        userId: user.id,
+        drinkId,
+        createdAt: new Date('2026-01-01T00:00:00Z'),
+      };
+      await reactions.save({ ...base, kind: 'like' });
+      await reactions.save({ ...base, kind: 'dislike' });
+      expect(await reactions.listByUser(user.id)).toEqual([
+        { ...base, kind: 'dislike' },
+      ]);
+      await reactions.remove(user.id, drinkId);
+      expect(await reactions.listByUser(user.id)).toEqual([]);
+    }));
+
+  it('stores one share per user with a unique slug', () =>
+    inRollbackTransaction(pool, async (db) => {
+      const user = newUser();
+      await new DrizzleUserRepository(db).create(user);
+      const shares = new DrizzleTasteShareRepository(db);
+      const share = {
+        userId: user.id,
+        slug: randomUUID().slice(0, 12),
+        displayName: 'Ana',
+        createdAt: new Date('2026-01-01T00:00:00Z'),
+      };
+      await shares.save(share);
+      await shares.save({ ...share, displayName: 'Ana M.' });
+      expect(await shares.findBySlug(share.slug)).toEqual({
+        ...share,
+        displayName: 'Ana M.',
+      });
+      await shares.removeByUser(user.id);
+      expect(await shares.findByUser(user.id)).toBeNull();
+    }));
+
+  it('stores one Cocktle game per user, day and mode', () =>
+    inRollbackTransaction(pool, async (db) => {
+      const user = newUser();
+      await new DrizzleUserRepository(db).create(user);
+      const games = new DrizzleCocktleGameRepository(db);
+      const game = {
+        userId: user.id,
+        day: '2026-09-24',
+        mode: 'zero' as const,
+        guesses: ['1'],
+        solved: false,
+      };
+      await games.save(game);
+      await games.save({ ...game, guesses: ['1', '2'], solved: true });
+      await games.save({ ...game, mode: 'classic' });
+      expect(await games.find(user.id, '2026-09-24', 'zero')).toEqual({
+        ...game,
+        guesses: ['1', '2'],
+        solved: true,
+      });
+      expect(await games.listByUser(user.id, 'classic')).toHaveLength(1);
+    }));
+
+  it('stores payments and settles them', () =>
+    inRollbackTransaction(pool, async (db) => {
+      const user = newUser();
+      await new DrizzleUserRepository(db).create(user);
+      const payments = new DrizzlePaymentRepository(db);
+      const payment = {
+        id: randomUUID(),
+        reference: `drinks-${randomUUID()}`,
+        userId: user.id,
+        planId: 'business',
+        amountInCents: 24_900_000,
+        currency: 'COP',
+        status: 'pending' as const,
+        transactionId: null,
+        createdAt: new Date('2026-01-01T00:00:00Z'),
+        updatedAt: new Date('2026-01-01T00:00:00Z'),
+      };
+      await payments.create(payment);
+      const approved = {
+        ...payment,
+        status: 'approved' as const,
+        transactionId: 'tx-1',
+        updatedAt: new Date('2026-01-02T00:00:00Z'),
+      };
+      await payments.save(approved);
+      expect(await payments.findByReference(payment.reference)).toEqual(
+        approved,
+      );
+      expect(await payments.listByUser(user.id)).toHaveLength(1);
     }));
 });

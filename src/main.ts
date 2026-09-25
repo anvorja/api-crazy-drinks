@@ -1,10 +1,16 @@
-import { Logger } from '@nestjs/common';
+import { ConsoleLogger, Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module.js';
 import { APP_NAME } from './shared/infrastructure/app-info.js';
 import { ENV } from './shared/infrastructure/config/config.module.js';
-import { Env, loadEnvFile } from './shared/infrastructure/config/env.js';
+import {
+  Env,
+  loadEnvFile,
+  parseEnv,
+} from './shared/infrastructure/config/env.js';
+import { runMigrations } from './shared/infrastructure/database/run-migrations.js';
+import { configureApp } from './shared/infrastructure/http/configure-app.js';
 import {
   OPENAPI_UI_PATH,
   setupOpenApi,
@@ -12,18 +18,20 @@ import {
 
 async function bootstrap() {
   loadEnvFile();
-  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  const startEnv = parseEnv();
+  const { LOG_FORMAT, LOG_LEVEL } = startEnv;
+  const levels = ['fatal', 'error', 'warn', 'log', 'debug', 'verbose'] as const;
+  const consoleLogger = new ConsoleLogger({
+    json: LOG_FORMAT === 'json',
+    logLevels: levels.slice(0, levels.indexOf(LOG_LEVEL) + 1),
+  });
+  if (startEnv.MIGRATE_ON_START) await runMigrations(startEnv);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    logger: consoleLogger,
+  });
   const env = app.get<Env>(ENV);
 
-  app.set('trust proxy', env.TRUST_PROXY);
-  app.enableCors({
-    exposedHeaders: [
-      'Retry-After',
-      'X-RateLimit-Limit',
-      'X-RateLimit-Remaining',
-      'X-RateLimit-Reset',
-    ],
-  });
+  configureApp(app, env);
   app.enableShutdownHooks();
   if (env.OPENAPI_ENABLED) setupOpenApi(app);
 

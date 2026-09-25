@@ -7,3 +7,5 @@ export const LOGIN_FAILURE_REPOSITORY = Symbol('LoginFailureRepository');
 export const API_KEY_REPOSITORY = Symbol('ApiKeyRepository');
 export const API_USAGE_REPOSITORY = Symbol('ApiUsageRepository');
 export const API_PLAN_LIMITS = Symbol('ApiPlanLimitsPort');
+export const PASSWORD_RESET_REPOSITORY = Symbol('PasswordResetRepository');
+export const ACCOUNT_NOTIFIER = Symbol('AccountNotifier');

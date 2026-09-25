@@ -1,5 +1,5 @@
 import { Module, OnApplicationBootstrap } from '@nestjs/common';
-import type { Clock } from '../../shared/application/ports.js';
+import type { Clock, SlugGenerator } from '../../shared/application/ports.js';
 import { ENV } from '../../shared/infrastructure/config/config.module.js';
 import type { Env } from '../../shared/infrastructure/config/env.js';
 import {
@@ -7,9 +7,17 @@ import {
   type Database,
 } from '../../shared/infrastructure/database/database.module.js';
 import { provide } from '../../shared/infrastructure/di/provide.js';
-import { CLOCK } from '../../shared/infrastructure/system.module.js';
+import {
+  CLOCK,
+  SLUG_GENERATOR,
+} from '../../shared/infrastructure/system.module.js';
 import { DrinkCatalog } from '../application/drink-catalog.js';
 import type { DrinkSource } from '../application/ports/drink-source.port.js';
+import {
+  ExploreDrinks,
+  GetDrinkFacets,
+  SuggestDrinks,
+} from '../application/use-cases/explore.js';
 import {
   FindDrinkTwins,
   GetFlavorDna,
@@ -28,7 +36,9 @@ import {
 import {
   AddFavorite,
   GetMyPantry,
+  GetMyTasteProfile,
   ListFavorites,
+  RecommendForMyTaste,
   RemoveFavorite,
   SaveMyPantry,
   SuggestFromMyPantry,
@@ -43,15 +53,47 @@ import { AdminCatalogController } from './http/admin-catalog.controller.js';
 import { DrinksController } from './http/drinks.controller.js';
 import { LabController } from './http/lab.controller.js';
 import { MeDrinksController } from './http/me-drinks.controller.js';
+import { MeTasteController } from './http/me-taste.controller.js';
+import { DiscoverController } from './http/discover.controller.js';
+import { PublicTasteController } from './http/public-taste.controller.js';
+import { CocktleController } from './http/cocktle.controller.js';
+import {
+  GetCocktleStats,
+  GetTodayCocktle,
+  GuessCocktle,
+} from '../application/use-cases/cocktle.js';
+import type { CocktleGameRepository } from '../domain/cocktle.js';
+import { DrizzleCocktleGameRepository } from './persistence/drizzle/drizzle-cocktle.repository.js';
+import {
+  CompareWithSharedTaste,
+  GetMyTasteShare,
+  GetSharedTaste,
+  ShareMyTaste,
+  StopSharingMyTaste,
+} from '../application/use-cases/taste-share.js';
+import type { TasteShareRepository } from '../domain/taste-share.js';
+import { DrizzleTasteShareRepository } from './persistence/drizzle/drizzle-taste-share.repository.js';
+import { CollectTasteSignals } from '../application/taste-signals.js';
+import {
+  GetDiscoverDeck,
+  GetDiscoverStats,
+  ReactToDrink,
+  UndoReaction,
+} from '../application/use-cases/discover.js';
+import type { ReactionRepository } from '../domain/reactions.js';
 import { DrizzleDrinkRepository } from './persistence/drizzle/drizzle-drink.repository.js';
 import {
   DrizzleFavoriteRepository,
+  DrizzleReactionRepository,
   DrizzleUserPantryRepository,
 } from './persistence/drizzle/drizzle-personal.repositories.js';
 import {
   DRINK_REPOSITORY,
   DRINK_SOURCE,
   FAVORITE_REPOSITORY,
+  COCKTLE_GAME_REPOSITORY,
+  REACTION_REPOSITORY,
+  TASTE_SHARE_REPOSITORY,
   USER_PANTRY_REPOSITORY,
 } from './tokens.js';
 
@@ -60,14 +102,19 @@ import {
     DrinksController,
     LabController,
     MeDrinksController,
+    MeTasteController,
+    DiscoverController,
+    PublicTasteController,
+    CocktleController,
     AdminCatalogController,
   ],
   providers: [
     // Outbound adapters
     provide(
       DRINK_REPOSITORY,
-      (db: Database) => new DrizzleDrinkRepository(db),
-      [DRIZZLE],
+      (db: Database, env: Env) =>
+        new DrizzleDrinkRepository(db, env.CATALOG_CACHE_CHECK_SECONDS * 1000),
+      [DRIZZLE, ENV],
     ),
     provide(
       DRINK_SOURCE,
@@ -78,6 +125,7 @@ import {
           timeoutMs: env.COCKTAILDB_TIMEOUT_MS,
           crawlConcurrency: env.COCKTAILDB_CRAWL_CONCURRENCY,
           retries: env.COCKTAILDB_RETRIES,
+          imagesBaseUrl: env.COCKTAILDB_IMAGES_BASE_URL,
         }),
       [ENV],
     ),
@@ -122,6 +170,15 @@ import {
       DrinkCatalog,
     ]),
     provide(ListMoods, () => new ListMoods()),
+    provide(ExploreDrinks, (c: DrinkCatalog) => new ExploreDrinks(c), [
+      DrinkCatalog,
+    ]),
+    provide(GetDrinkFacets, (c: DrinkCatalog) => new GetDrinkFacets(c), [
+      DrinkCatalog,
+    ]),
+    provide(SuggestDrinks, (c: DrinkCatalog) => new SuggestDrinks(c), [
+      DrinkCatalog,
+    ]),
 
     // Personal: saved pantry and favorites
     provide(GetMyPantry, (r: UserPantryRepository) => new GetMyPantry(r), [
@@ -147,6 +204,123 @@ import {
       (r: FavoriteRepository, g: GetDrink, clock: Clock) =>
         new AddFavorite(r, g, clock),
       [FAVORITE_REPOSITORY, GetDrink, CLOCK],
+    ),
+    provide(
+      CollectTasteSignals,
+      (f: FavoriteRepository, r: ReactionRepository, c: DrinkCatalog) =>
+        new CollectTasteSignals(f, r, c),
+      [FAVORITE_REPOSITORY, REACTION_REPOSITORY, DrinkCatalog],
+    ),
+    provide(
+      GetMyTasteProfile,
+      (s: CollectTasteSignals) => new GetMyTasteProfile(s),
+      [CollectTasteSignals],
+    ),
+    provide(
+      RecommendForMyTaste,
+      (s: CollectTasteSignals, c: DrinkCatalog) =>
+        new RecommendForMyTaste(s, c),
+      [CollectTasteSignals, DrinkCatalog],
+    ),
+
+    // Shareable taste and compatibility
+    provide(
+      TASTE_SHARE_REPOSITORY,
+      (db: Database) => new DrizzleTasteShareRepository(db),
+      [DRIZZLE],
+    ),
+    provide(
+      ShareMyTaste,
+      (
+        r: TasteShareRepository,
+        s: CollectTasteSignals,
+        slugs: SlugGenerator,
+        clock: Clock,
+      ) => new ShareMyTaste(r, s, slugs, clock),
+      [TASTE_SHARE_REPOSITORY, CollectTasteSignals, SLUG_GENERATOR, CLOCK],
+    ),
+    provide(
+      GetMyTasteShare,
+      (r: TasteShareRepository) => new GetMyTasteShare(r),
+      [TASTE_SHARE_REPOSITORY],
+    ),
+    provide(
+      StopSharingMyTaste,
+      (r: TasteShareRepository) => new StopSharingMyTaste(r),
+      [TASTE_SHARE_REPOSITORY],
+    ),
+    provide(
+      GetSharedTaste,
+      (r: TasteShareRepository, s: CollectTasteSignals) =>
+        new GetSharedTaste(r, s),
+      [TASTE_SHARE_REPOSITORY, CollectTasteSignals],
+    ),
+    provide(
+      CompareWithSharedTaste,
+      (r: TasteShareRepository, s: CollectTasteSignals, c: DrinkCatalog) =>
+        new CompareWithSharedTaste(r, s, c),
+      [TASTE_SHARE_REPOSITORY, CollectTasteSignals, DrinkCatalog],
+    ),
+
+    // Cocktle (daily game)
+    provide(
+      COCKTLE_GAME_REPOSITORY,
+      (db: Database) => new DrizzleCocktleGameRepository(db),
+      [DRIZZLE],
+    ),
+    provide(
+      GetTodayCocktle,
+      (g: CocktleGameRepository, c: DrinkCatalog, clock: Clock) =>
+        new GetTodayCocktle(g, c, clock),
+      [COCKTLE_GAME_REPOSITORY, DrinkCatalog, CLOCK],
+    ),
+    provide(
+      GuessCocktle,
+      (g: CocktleGameRepository, c: DrinkCatalog, clock: Clock) =>
+        new GuessCocktle(g, c, clock),
+      [COCKTLE_GAME_REPOSITORY, DrinkCatalog, CLOCK],
+    ),
+    provide(
+      GetCocktleStats,
+      (g: CocktleGameRepository, clock: Clock) => new GetCocktleStats(g, clock),
+      [COCKTLE_GAME_REPOSITORY, CLOCK],
+    ),
+
+    // Discover (swipe)
+    provide(
+      REACTION_REPOSITORY,
+      (db: Database) => new DrizzleReactionRepository(db),
+      [DRIZZLE],
+    ),
+    provide(
+      GetDiscoverDeck,
+      (s: CollectTasteSignals, c: DrinkCatalog) => new GetDiscoverDeck(s, c),
+      [CollectTasteSignals, DrinkCatalog],
+    ),
+    provide(
+      ReactToDrink,
+      (
+        r: ReactionRepository,
+        f: FavoriteRepository,
+        g: GetDrink,
+        s: CollectTasteSignals,
+        clock: Clock,
+      ) => new ReactToDrink(r, f, g, s, clock),
+      [
+        REACTION_REPOSITORY,
+        FAVORITE_REPOSITORY,
+        GetDrink,
+        CollectTasteSignals,
+        CLOCK,
+      ],
+    ),
+    provide(UndoReaction, (r: ReactionRepository) => new UndoReaction(r), [
+      REACTION_REPOSITORY,
+    ]),
+    provide(
+      GetDiscoverStats,
+      (r: ReactionRepository) => new GetDiscoverStats(r),
+      [REACTION_REPOSITORY],
     ),
     provide(RemoveFavorite, (r: FavoriteRepository) => new RemoveFavorite(r), [
       FAVORITE_REPOSITORY,

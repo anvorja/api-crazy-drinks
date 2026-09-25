@@ -22,6 +22,8 @@ ENV NODE_ENV=production
 WORKDIR /app
 COPY --chown=node:node package.json ./
 COPY --chown=node:node drizzle ./drizzle
+# Fonts for the shareable taste cards (see assets/fonts/LICENSE-DejaVu.txt)
+COPY --chown=node:node assets ./assets
 COPY --from=build --chown=node:node /app/node_modules ./node_modules
 COPY --from=build --chown=node:node /app/dist ./dist
 USER node

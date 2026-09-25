@@ -47,9 +47,24 @@ import type { LoginFailureRepository } from '../domain/login-throttle.js';
 import type { RefreshTokenRepository } from '../domain/refresh-token.js';
 import type { UserRepository } from '../domain/user.repository.js';
 import { AdminUsersController } from './http/admin-users.controller.js';
+import { AccountController } from './http/account.controller.js';
+import { EmailAccountNotifier } from './mail/email-account-notifier.js';
+import { DrizzlePasswordResetRepository } from './persistence/drizzle/drizzle-password-reset.repository.js';
+import {
+  ChangePassword,
+  DeleteAccount,
+  RequestPasswordReset,
+  ResetPassword,
+  UpdateProfile,
+} from '../application/use-cases/account.js';
+import type { AccountNotifier } from '../application/ports/account-notifier.port.js';
+import type { PasswordResetRepository } from '../domain/password-reset.js';
+import type { Mailer } from '../../shared/application/ports.js';
+import { MAILER } from '../../shared/infrastructure/mail/mail.module.js';
 import { ApiKeysController } from './http/api-keys.controller.js';
 import { AuthController } from './http/auth.controller.js';
 import { AuthenticationGuard } from './http/authentication.guard.js';
+import { RefreshCookie } from './http/refresh-cookie.js';
 import {
   DrizzleApiKeyRepository,
   DrizzleApiUsageRepository,
@@ -62,6 +77,8 @@ import { RandomOpaqueTokens } from './security/node-crypto.js';
 import { ScryptPasswordHasher } from './security/scrypt-password.hasher.js';
 import {
   ACCESS_TOKEN_ISSUER,
+  ACCOUNT_NOTIFIER,
+  PASSWORD_RESET_REPOSITORY,
   API_KEY_REPOSITORY,
   API_PLAN_LIMITS,
   API_USAGE_REPOSITORY,
@@ -75,7 +92,12 @@ import {
 const DAY_MS = 86_400_000;
 
 @Module({
-  controllers: [AuthController, ApiKeysController, AdminUsersController],
+  controllers: [
+    AuthController,
+    AccountController,
+    ApiKeysController,
+    AdminUsersController,
+  ],
   providers: [
     // Outbound adapters
     provide(USER_REPOSITORY, (db: Database) => new DrizzleUserRepository(db), [
@@ -275,6 +297,126 @@ const DAY_MS = 86_400_000;
         OPAQUE_TOKENS,
         CLOCK,
       ],
+    ),
+
+    RefreshCookie,
+
+    // Account: password reset, profile, deletion
+    provide(
+      PASSWORD_RESET_REPOSITORY,
+      (db: Database) => new DrizzlePasswordResetRepository(db),
+      [DRIZZLE],
+    ),
+    provide(
+      ACCOUNT_NOTIFIER,
+      (mailer: Mailer, env: Env): AccountNotifier =>
+        new EmailAccountNotifier(mailer, env.PASSWORD_RESET_URL),
+      [MAILER, ENV],
+    ),
+    provide(
+      RequestPasswordReset,
+      (
+        users: UserRepository,
+        resets: PasswordResetRepository,
+        requests: LoginFailureRepository,
+        opaque: OpaqueTokens,
+        ids: IdGenerator,
+        notifier: AccountNotifier,
+        clock: Clock,
+        env: Env,
+      ) => {
+        const windowMs = env.PASSWORD_RESET_WINDOW_SECONDS * 1000;
+        return new RequestPasswordReset(
+          users,
+          resets,
+          requests,
+          opaque,
+          ids,
+          notifier,
+          clock,
+          {
+            ttlMinutes: env.PASSWORD_RESET_TTL_MINUTES,
+            throttle: {
+              perAccount: {
+                maxFailures: env.PASSWORD_RESET_MAX_PER_ACCOUNT,
+                windowMs,
+              },
+              perIp: { maxFailures: env.PASSWORD_RESET_MAX_PER_IP, windowMs },
+            },
+          },
+        );
+      },
+      [
+        USER_REPOSITORY,
+        PASSWORD_RESET_REPOSITORY,
+        LOGIN_FAILURE_REPOSITORY,
+        OPAQUE_TOKENS,
+        ID_GENERATOR,
+        ACCOUNT_NOTIFIER,
+        CLOCK,
+        ENV,
+      ],
+    ),
+    provide(
+      ResetPassword,
+      (
+        users: UserRepository,
+        resets: PasswordResetRepository,
+        tokens: RefreshTokenRepository,
+        failures: LoginFailureRepository,
+        hasher: PasswordHasher,
+        opaque: OpaqueTokens,
+        notifier: AccountNotifier,
+        clock: Clock,
+      ) =>
+        new ResetPassword(
+          users,
+          resets,
+          tokens,
+          failures,
+          hasher,
+          opaque,
+          notifier,
+          clock,
+        ),
+      [
+        USER_REPOSITORY,
+        PASSWORD_RESET_REPOSITORY,
+        REFRESH_TOKEN_REPOSITORY,
+        LOGIN_FAILURE_REPOSITORY,
+        PASSWORD_HASHER,
+        OPAQUE_TOKENS,
+        ACCOUNT_NOTIFIER,
+        CLOCK,
+      ],
+    ),
+    provide(
+      ChangePassword,
+      (
+        users: UserRepository,
+        tokens: RefreshTokenRepository,
+        hasher: PasswordHasher,
+        notifier: AccountNotifier,
+        clock: Clock,
+      ) => new ChangePassword(users, tokens, hasher, notifier, clock),
+      [
+        USER_REPOSITORY,
+        REFRESH_TOKEN_REPOSITORY,
+        PASSWORD_HASHER,
+        ACCOUNT_NOTIFIER,
+        CLOCK,
+      ],
+    ),
+    provide(
+      UpdateProfile,
+      (users: UserRepository) => new UpdateProfile(users),
+      [USER_REPOSITORY],
+    ),
+    provide(
+      DeleteAccount,
+      (users: UserRepository, hasher: PasswordHasher) =>
+        new DeleteAccount(users, hasher),
+      [USER_REPOSITORY, PASSWORD_HASHER],
     ),
 
     // Inbound: every request goes through authentication.

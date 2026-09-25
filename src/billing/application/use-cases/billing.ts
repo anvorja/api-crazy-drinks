@@ -77,7 +77,10 @@ export class SetSubscription {
       throw new ValidationError(`Unknown plan ${input.planId}`);
     }
     if (!(await this.users.exists(input.userId))) {
-      throw new NotFoundError(`User ${input.userId} not found`);
+      throw new NotFoundError(
+        `User ${input.userId} not found`,
+        'USER_NOT_FOUND',
+      );
     }
     assertValidPeriodEnd(input.currentPeriodEnd, now);
     const subscription: Subscription = {

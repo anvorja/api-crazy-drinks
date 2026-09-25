@@ -2,13 +2,29 @@ import { Global, Module } from '@nestjs/common';
 import type { UserRepository } from '../../identity/domain/user.repository.js';
 import { IdentityModule } from '../../identity/infrastructure/identity.module.js';
 import { USER_REPOSITORY } from '../../identity/infrastructure/tokens.js';
-import type { Clock } from '../../shared/application/ports.js';
+import type { Clock, IdGenerator } from '../../shared/application/ports.js';
+import { ENV } from '../../shared/infrastructure/config/config.module.js';
+import type { Env } from '../../shared/infrastructure/config/env.js';
 import {
   DRIZZLE,
   type Database,
 } from '../../shared/infrastructure/database/database.module.js';
 import { provide } from '../../shared/infrastructure/di/provide.js';
-import { CLOCK } from '../../shared/infrastructure/system.module.js';
+import {
+  CLOCK,
+  ID_GENERATOR,
+} from '../../shared/infrastructure/system.module.js';
+import type { PaymentRepository } from '../domain/payment.js';
+import {
+  ApplyPaymentOutcome,
+  ListMyPayments,
+  StartCheckout,
+  VerifyPayment,
+} from '../application/use-cases/payments.js';
+import { PaymentsController } from './http/payments.controller.js';
+import { WompiWebhookController } from './http/wompi-webhook.controller.js';
+import { DrizzlePaymentRepository } from './persistence/drizzle/drizzle-payment.repository.js';
+import { WompiGateway } from './wompi/wompi.gateway.js';
 import type { UserDirectory } from '../application/ports/user-directory.port.js';
 import {
   CancelMySubscription,
@@ -27,9 +43,11 @@ import {
   DrizzleSubscriptionRepository,
 } from './persistence/drizzle/drizzle-billing.repositories.js';
 import {
+  PAYMENT_REPOSITORY,
   PLAN_REPOSITORY,
   SUBSCRIPTION_REPOSITORY,
   USER_DIRECTORY,
+  WOMPI_GATEWAY,
 } from './tokens.js';
 
 /**
@@ -39,7 +57,7 @@ import {
 @Global()
 @Module({
   imports: [IdentityModule],
-  controllers: [BillingController],
+  controllers: [BillingController, PaymentsController, WompiWebhookController],
   providers: [
     provide(PLAN_REPOSITORY, (db: Database) => new DrizzlePlanRepository(db), [
       DRIZZLE,
@@ -54,6 +72,7 @@ import {
       USER_DIRECTORY,
       (users: UserRepository): UserDirectory => ({
         exists: async (id) => (await users.findById(id)) !== null,
+        emailOf: async (id) => (await users.findById(id))?.email ?? null,
       }),
       [USER_REPOSITORY],
     ),
@@ -86,6 +105,75 @@ import {
       (subs: SubscriptionRepository, clock: Clock) =>
         new CancelMySubscription(subs, clock),
       [SUBSCRIPTION_REPOSITORY, CLOCK],
+    ),
+
+    // Payments
+    provide(
+      PAYMENT_REPOSITORY,
+      (db: Database) => new DrizzlePaymentRepository(db),
+      [DRIZZLE],
+    ),
+    provide(
+      WOMPI_GATEWAY,
+      (env: Env) =>
+        env.PAYMENTS_PROVIDER === 'wompi'
+          ? new WompiGateway({
+              publicKey: env.WOMPI_PUBLIC_KEY!,
+              integritySecret: env.WOMPI_INTEGRITY_SECRET!,
+              eventsSecret: env.WOMPI_EVENTS_SECRET!,
+              apiUrl: env.WOMPI_API_URL!,
+              checkoutUrl: env.WOMPI_CHECKOUT_URL!,
+              redirectUrl: env.PAYMENTS_REDIRECT_URL!,
+              timeoutMs: env.WOMPI_TIMEOUT_MS,
+            })
+          : null,
+      [ENV],
+    ),
+    provide(
+      StartCheckout,
+      (
+        plans: PlanRepository,
+        payments: PaymentRepository,
+        users: UserDirectory,
+        gateway: WompiGateway | null,
+        ids: IdGenerator,
+        clock: Clock,
+      ) => new StartCheckout(plans, payments, users, gateway, ids, clock),
+      [
+        PLAN_REPOSITORY,
+        PAYMENT_REPOSITORY,
+        USER_DIRECTORY,
+        WOMPI_GATEWAY,
+        ID_GENERATOR,
+        CLOCK,
+      ],
+    ),
+    provide(
+      ApplyPaymentOutcome,
+      (
+        payments: PaymentRepository,
+        subs: SubscriptionRepository,
+        clock: Clock,
+        env: Env,
+      ) =>
+        new ApplyPaymentOutcome(payments, subs, clock, {
+          periodDays: env.SUBSCRIPTION_PERIOD_DAYS,
+        }),
+      [PAYMENT_REPOSITORY, SUBSCRIPTION_REPOSITORY, CLOCK, ENV],
+    ),
+    provide(
+      VerifyPayment,
+      (
+        payments: PaymentRepository,
+        gateway: WompiGateway | null,
+        apply: ApplyPaymentOutcome,
+      ) => new VerifyPayment(payments, gateway, apply),
+      [PAYMENT_REPOSITORY, WOMPI_GATEWAY, ApplyPaymentOutcome],
+    ),
+    provide(
+      ListMyPayments,
+      (payments: PaymentRepository) => new ListMyPayments(payments),
+      [PAYMENT_REPOSITORY],
     ),
   ],
   exports: [GetPlanLimits],

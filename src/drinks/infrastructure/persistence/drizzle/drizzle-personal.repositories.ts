@@ -1,3 +1,4 @@
+import { Reaction, ReactionRepository } from '../../../domain/reactions.js';
 import { and, desc, eq } from 'drizzle-orm';
 import type { PgDatabase, PgQueryResultHKT } from 'drizzle-orm/pg-core';
 import {
@@ -6,7 +7,11 @@ import {
   UserPantry,
   UserPantryRepository,
 } from '../../../domain/personal.js';
-import { favoritesTable, userPantriesTable } from './personal.schema.js';
+import {
+  drinkReactionsTable,
+  favoritesTable,
+  userPantriesTable,
+} from './personal.schema.js';
 
 export class DrizzleUserPantryRepository implements UserPantryRepository {
   constructor(private readonly db: PgDatabase<PgQueryResultHKT>) {}
@@ -54,5 +59,38 @@ export class DrizzleFavoriteRepository implements FavoriteRepository {
           eq(favoritesTable.drinkId, drinkId),
         ),
       );
+  }
+}
+
+export class DrizzleReactionRepository implements ReactionRepository {
+  constructor(private readonly db: PgDatabase<PgQueryResultHKT>) {}
+
+  async save(reaction: Reaction): Promise<void> {
+    await this.db
+      .insert(drinkReactionsTable)
+      .values(reaction)
+      .onConflictDoUpdate({
+        target: [drinkReactionsTable.userId, drinkReactionsTable.drinkId],
+        set: { kind: reaction.kind, createdAt: reaction.createdAt },
+      });
+  }
+
+  async remove(userId: string, drinkId: string): Promise<void> {
+    await this.db
+      .delete(drinkReactionsTable)
+      .where(
+        and(
+          eq(drinkReactionsTable.userId, userId),
+          eq(drinkReactionsTable.drinkId, drinkId),
+        ),
+      );
+  }
+
+  async listByUser(userId: string): Promise<Reaction[]> {
+    return this.db
+      .select()
+      .from(drinkReactionsTable)
+      .where(eq(drinkReactionsTable.userId, userId))
+      .orderBy(desc(drinkReactionsTable.createdAt));
   }
 }

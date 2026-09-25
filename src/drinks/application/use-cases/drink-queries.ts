@@ -27,9 +27,10 @@ export class GetDrink {
 
   async execute(id: string, visibility: DrinkVisibility): Promise<Drink> {
     const drink = await this.catalog.findById(id);
-    if (!drink) throw new NotFoundError(`Drink ${id} not found`);
+    if (!drink)
+      throw new NotFoundError(`Drink ${id} not found`, 'DRINK_NOT_FOUND');
     if (!isVisible(drink, visibility))
-      throw new ForbiddenError(AGE_RESTRICTED_MESSAGE);
+      throw new ForbiddenError(AGE_RESTRICTED_MESSAGE, 'AGE_RESTRICTED');
     return drink;
   }
 }
@@ -45,7 +46,7 @@ export class GetRandomDrink {
     visibility: DrinkVisibility,
   ): Promise<Drink> {
     if (alcoholic && !visibility.includeAlcoholic)
-      throw new ForbiddenError(AGE_RESTRICTED_MESSAGE);
+      throw new ForbiddenError(AGE_RESTRICTED_MESSAGE, 'AGE_RESTRICTED');
 
     // Unfiltered requests go upstream for the widest variety.
     if (alcoholic === undefined && visibility.includeAlcoholic) {

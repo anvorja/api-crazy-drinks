@@ -1,27 +1,49 @@
 import { z } from 'zod';
-import { Drink, toSummary } from '../../../domain/drink.js';
+import { Drink, Ingredient, toSummary } from '../../../domain/drink.js';
+import {
+  categoryEs,
+  glassEs,
+  ingredientEs,
+} from '../../../domain/translations.js';
+import { drinkImageSizes } from '../../cocktaildb/images.js';
 import { FLAVOR_DIMENSIONS, FlavorDna, Twin } from '../../../domain/flavor.js';
 
 export const ingredientResponseSchema = z
   .object({
     name: z.string().meta({ example: 'Tequila' }),
+    nameEs: z
+      .string()
+      .nullable()
+      .meta({ example: 'Tequila', description: 'Spanish name, if known' }),
     measure: z.string().nullable().meta({ example: '1 1/2 oz' }),
+    image: z
+      .string()
+      .nullable()
+      .meta({ description: 'Small picture of the ingredient' }),
   })
   .meta({ id: 'Ingredient' });
+
+export const imageSizesSchema = z
+  .object({ small: z.string(), medium: z.string(), large: z.string() })
+  .nullable()
+  .meta({ id: 'ImageSizes', description: 'The drink picture in three sizes' });
 
 export const drinkResponseSchema = z
   .object({
     id: z.string().meta({ example: '11007' }),
     name: z.string().meta({ example: 'Margarita' }),
     category: z.string().nullable().meta({ example: 'Ordinary Drink' }),
+    categoryEs: z.string().nullable().meta({ example: 'Trago clásico' }),
     alcoholic: z.boolean(),
     glass: z.string().nullable().meta({ example: 'Cocktail glass' }),
+    glassEs: z.string().nullable().meta({ example: 'Copa de cóctel' }),
     iba: z
       .string()
       .nullable()
       .meta({ description: 'IBA official list, if any' }),
     tags: z.array(z.string()),
     image: z.string().nullable(),
+    images: imageSizesSchema,
     video: z.string().nullable(),
     instructions: z.object({
       en: z.string().nullable(),
@@ -81,21 +103,30 @@ export const twinsResponseSchema = z
   })
   .meta({ id: 'DrinkTwins' });
 
+export const toIngredientResponse = (
+  ingredient: Ingredient,
+): z.infer<typeof ingredientResponseSchema> => ({
+  name: ingredient.name,
+  nameEs: ingredientEs(ingredient.name),
+  measure: ingredient.measure,
+  image: ingredient.image ?? null,
+});
+
 export const toDrinkResponse = (drink: Drink): DrinkResponseDto => ({
   id: drink.id,
   name: drink.name,
   category: drink.category,
+  categoryEs: categoryEs(drink.category),
   alcoholic: drink.alcoholic,
   glass: drink.glass,
+  glassEs: glassEs(drink.glass),
   iba: drink.iba,
   tags: drink.tags,
   image: drink.image,
+  images: drinkImageSizes(drink.image),
   video: drink.video,
   instructions: { ...drink.instructions },
-  ingredients: drink.ingredients.map(({ name, measure }) => ({
-    name,
-    measure,
-  })),
+  ingredients: drink.ingredients.map(toIngredientResponse),
 });
 
 export const toSummaryResponse = (drink: Drink): DrinkSummaryDto =>

@@ -80,3 +80,17 @@ export const apiUsageTable = pgTable(
   },
   (t) => [primaryKey({ columns: [t.userId, t.day] })],
 );
+
+export const passwordResetsTable = pgTable(
+  'password_resets',
+  {
+    id: uuid('id').primaryKey(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => usersTable.id, { onDelete: 'cascade' }),
+    tokenHash: text('token_hash').notNull().unique(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    usedAt: timestamp('used_at', { withTimezone: true }),
+  },
+  (t) => [index('password_resets_user_idx').on(t.userId)],
+);

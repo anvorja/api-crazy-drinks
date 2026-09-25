@@ -33,9 +33,11 @@ export const sessionResponseSchema = z
       .number()
       .int()
       .meta({ description: 'Access token lifetime in seconds' }),
-    refreshToken: z.string().meta({
-      description: 'Opaque. Single use: each refresh returns a new one.',
+    refreshToken: z.string().nullable().meta({
+      description:
+        'Opaque, single use (each refresh returns a new one). null when it was set as an httpOnly cookie.',
     }),
+    refreshTokenIn: z.enum(['cookie', 'body']),
     user: userResponseSchema,
   })
   .meta({ id: 'Session' });
@@ -93,11 +95,13 @@ export const toUserResponse = (
 
 export const toSessionResponse = (
   session: Session,
+  refreshTokenIn: 'cookie' | 'body',
 ): z.infer<typeof sessionResponseSchema> => ({
   tokenType: 'Bearer',
   accessToken: session.accessToken,
   expiresIn: session.expiresInSeconds,
-  refreshToken: session.refreshToken,
+  refreshToken: refreshTokenIn === 'body' ? session.refreshToken : null,
+  refreshTokenIn,
   user: toUserResponse(session.user),
 });
 
