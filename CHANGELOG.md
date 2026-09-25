@@ -7,6 +7,15 @@ versión del contrato HTTP (`/v1`).
 
 ## [Unreleased]
 
+### Cambiado
+
+- **CD a Docker Hub y staging en Render.**
+  - Con cada push a `develop` o `main`, y solo después de los tres checks, la imagen probada (sin
+    reconstruir) se sube a Docker Hub con su canal (`develop` o `latest`) y el `<sha>`.
+  - Con cada push a `develop`, Render (staging) despliega ese `<sha>` y el workflow espera a que
+    quede en vivo.
+  - Las versiones `X.Y.Z` se etiquetan en Docker Hub. Reemplaza a GHCR y al deploy hook.
+
 ### Añadido
 
 - **Pagos en producción** (`docs/pagos-wompi.md`): por qué el frontend usa un proxy de `/v1` cuando

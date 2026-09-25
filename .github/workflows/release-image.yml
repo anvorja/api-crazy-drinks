@@ -1,8 +1,9 @@
 name: Imagen de la versión
 
 # Publishing a version = pushing a tag vX.Y.Z on main's release merge commit.
-# The image is NOT rebuilt: the one CI built and tested for that commit (sha-<commit>) gets
-# the version tags and `latest`, so `X.Y.Z` and `latest` are the very same image (same digest).
+# The image is NOT rebuilt: the one CI built, tested and pushed to Docker Hub for that commit
+# (<sha>, also `latest`) gets the version tags, so `X.Y.Z` and `latest` are the same digest.
+# Deploying is not done here: it already happened on the push to main (ci-cd.yml).
 on:
   push:
     tags: ['v*.*.*']
@@ -14,7 +15,6 @@ on:
 
 permissions:
   contents: read
-  packages: write
 
 concurrency:
   group: release-image
@@ -26,7 +26,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
-      IMAGE: ghcr.io/${{ github.repository }}
+      IMAGE: docker.io/${{ secrets.DOCKER_USERNAME }}/api-drinks
       TAG: ${{ inputs.tag || github.ref_name }}
     steps:
       - uses: actions/checkout@v4
@@ -48,15 +48,15 @@ jobs:
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "major=${BASH_REMATCH[1]}" >> "$GITHUB_OUTPUT"
           echo "minor=${BASH_REMATCH[1]}.${BASH_REMATCH[2]}" >> "$GITHUB_OUTPUT"
-          echo "source=$IMAGE:sha-$(git rev-parse --short=7 "$commit")" >> "$GITHUB_OUTPUT"
+          echo "source=$IMAGE:$(git rev-parse --short=7 "$commit")" >> "$GITHUB_OUTPUT"
 
       - uses: docker/setup-buildx-action@v3
 
-      - uses: docker/login-action@v3
+      - name: Login en Docker Hub
+        uses: docker/login-action@v3
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_TOKEN }}
 
       - name: Etiquetar la imagen ya probada (sin reconstruir)
         env:
@@ -68,19 +68,7 @@ jobs:
             --tag "$IMAGE:${{ steps.version.outputs.version }}" \
             --tag "$IMAGE:${{ steps.version.outputs.minor }}" \
             --tag "$IMAGE:${{ steps.version.outputs.major }}" \
-            --tag "$IMAGE:latest" \
             "$SOURCE"
           for t in "${{ steps.version.outputs.version }}" latest; do
             echo "$t → $(docker buildx imagetools inspect "$IMAGE:$t" --format '{{json .Manifest.Digest}}')"
           done
-
-      - name: Desplegar en Render (si hay deploy hook)
-        env:
-          RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
-        run: |
-          if [[ -z "$RENDER_DEPLOY_HOOK_URL" ]]; then
-            echo "Sin RENDER_DEPLOY_HOOK_URL: nada que desplegar."
-            exit 0
-          fi
-          curl -fsS -X POST "$RENDER_DEPLOY_HOOK_URL" > /dev/null
-          echo "Render: despliegue solicitado."
