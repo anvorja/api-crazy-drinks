@@ -60,7 +60,8 @@ El `.env` real está en `.gitignore`.
 | Grupo           | Variables |
 | --------------- | --------- |
 | Servidor        | `NODE_ENV`, `PORT`, `TRUST_PROXY` (detrás de un proxy, para ver la IP real), `OPENAPI_ENABLED`, `CACHE_MAX_AGE_SECONDS` |
-| Catálogo        | `CATALOG_SOURCE` (`snapshot` o `cocktaildb`), `COCKTAILDB_IMAGES_BASE_URL`, `CATALOG_CACHE_CHECK_SECONDS`; solo con `cocktaildb`: `COCKTAILDB_BASE_URL`, `COCKTAILDB_API_KEY`, `COCKTAILDB_TIMEOUT_MS`, `COCKTAILDB_RETRIES`, `COCKTAILDB_CRAWL_CONCURRENCY`, `CATALOG_TTL_MS` |
+| Catálogo        | `CATALOG_SOURCE` (`snapshot` o `cocktaildb`), `CATALOG_CACHE_CHECK_SECONDS`; solo con `cocktaildb`: `COCKTAILDB_BASE_URL`, `COCKTAILDB_API_KEY`, `COCKTAILDB_IMAGES_BASE_URL`, `COCKTAILDB_TIMEOUT_MS`, `COCKTAILDB_RETRIES`, `COCKTAILDB_CRAWL_CONCURRENCY`, `CATALOG_TTL_MS` |
+| Cloudinary      | `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`, `CLOUDINARY_FOLDER`: solo para el script de imágenes, no para la API |
 | PostgreSQL      | `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_POOL_MAX`, `MIGRATE_ON_START` |
 | Autenticación   | `JWT_SECRET` (mín. 32 caracteres), `JWT_ACCESS_TTL_SECONDS`, `REFRESH_TOKEN_TTL_DAYS` |
 | Observabilidad  | `LOG_FORMAT` (`json` o `pretty`), `LOG_LEVEL`, `METRICS_ENABLED`, `METRICS_TOKEN`, `SENTRY_DSN` |
@@ -86,7 +87,7 @@ pnpm db:studio                     # explorador visual
 
 | Contexto   | Tablas |
 | ---------- | ------ |
-| `drinks`   | `drinks` (sembrada por `0011_seed_drinks_catalog.sql`), `catalog_syncs`, `user_pantries`, `favorites`, `drink_reactions`, `taste_shares`, `cocktle_games` |
+| `drinks`   | `drinks` (sembrada por `0011_seed_drinks_catalog.sql`; imágenes en Cloudinary por `0012_images_cloudinary.sql`), `catalog_syncs`, `user_pantries`, `favorites`, `drink_reactions`, `taste_shares`, `cocktle_games` |
 | `identity` | `users`, `refresh_tokens`, `login_failures`, `api_keys`, `api_usage`, `password_resets` |
 | `billing`  | `plans` (sembrada por `0004_seed_plans.sql`), `subscriptions`, `payments` |
 | `venues`   | `venues`, `venue_inventory` |
@@ -412,9 +413,16 @@ proyecto **académico**, así que el catálogo se tomó una sola vez con la clav
   `.env.example`) la API nunca llama a TheCocktailDB. La búsqueda, el detalle, el aleatorio, el
   coctel del día y todo el análisis salen de Postgres, y `/health/ready` no revisa TheCocktailDB.
   `POST /v1/admin/catalog/sync` responde `409 CATALOG_SOURCE_DISABLED`.
-- **Imágenes:** las URLs apuntan a los archivos públicos de TheCocktailDB
-  (`COCKTAILDB_IMAGES_BASE_URL`), que no requieren clave. Son lo único que se sigue cargando
-  desde su sitio, y lo hace el navegador del usuario, no la API.
+- **Imágenes en Cloudinary:** las 443 fotos de bebidas y las 299 de ingredientes se copiaron a
+  Cloudinary (carpeta `cocktailDB/`, subcarpetas `drinks/` e `ingredients/`) con
+  `scripts/upload-images-cloudinary.mjs`. La migración `drizzle/0012_images_cloudinary.sql`
+  apunta el catálogo a ellas. Así nada se carga desde el sitio de TheCocktailDB.
+  - Se guarda el original (700 px) y la API arma `small`, `medium` y `large` (200, 350 y 500 px)
+    con transformaciones en la URL (`c_fill,w_200,h_200,f_auto,q_auto`). Cloudinary elige WebP o
+    AVIF según el navegador: la miniatura pesa unos 4 KB en lugar de 10.
+  - Los ingredientes se muestran a 100 px, igual que antes.
+  - El script usa las variables `CLOUDINARY_*` del `.env` y no hay que volver a ejecutarlo. Si se
+    ejecuta de nuevo, conserva lo ya subido y regenera la misma migración.
 - **Sincronizar de nuevo (opcional):** el adaptador `cocktaildb/` sigue ahí, detrás del puerto
   `DrinkSource`. Con `CATALOG_SOURCE=cocktaildb` y las variables `COCKTAILDB_*`, el catálogo vuelve
   a sincronizarse. Publicarlo así exigiría la **clave Premium** (pago único de unos USD 10 según su

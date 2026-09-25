@@ -27,6 +27,23 @@ describe('suggest', () => {
     );
   });
 
+  it('shows an ingredient with the first picture the catalog has for it', () => {
+    const withPicture = {
+      ...DRINKS[5],
+      id: '7',
+      ingredients: [
+        { name: 'chocolate', measure: null, image: 'https://img/choc' },
+      ],
+    };
+    const [hit] = suggest('chocolate', [...DRINKS, withPicture], 5).filter(
+      (s) => s.kind === 'ingredient',
+    );
+    expect(hit).toMatchObject({
+      value: 'Chocolate',
+      image: 'https://img/choc',
+    });
+  });
+
   it('returns nothing for unrelated text', () => {
     expect(suggest('xyzzy', DRINKS, 5)).toEqual([]);
   });

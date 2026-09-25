@@ -46,10 +46,7 @@ describe('parseEnv', () => {
   it('the snapshot catalog needs no TheCocktailDB settings; cocktaildb needs them', () => {
     const withoutCocktailDb = Object.fromEntries(
       Object.entries(TEST_ENV).filter(
-        ([key]) =>
-          (!key.startsWith('COCKTAILDB_') ||
-            key === 'COCKTAILDB_IMAGES_BASE_URL') &&
-          key !== 'CATALOG_TTL_MS',
+        ([key]) => !key.startsWith('COCKTAILDB_') && key !== 'CATALOG_TTL_MS',
       ),
     );
     expect(
