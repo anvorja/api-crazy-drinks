@@ -182,19 +182,29 @@ main:                         ● Release 4.1.0   (C + fix, exactamente lo proba
 1. `git switch -c release/X.Y.Z develop`. Sube la versión (`package.json` y `APP_VERSION`), escribe
    la sección en `CHANGELOG.md` y corre `pnpm openapi:generate`, porque la versión va en el
    contrato. Haz el commit y el push.
-2. **Abre los dos PR antes de mergear ninguno:** `release/X.Y.Z → main` con el título
+2. **Sincroniza `main` en la rama del release:**
+   ```bash
+   git fetch && git merge -s ours origin/main -m "Merge main en release/X.Y.Z" && git push
+   ```
+   El release anterior volvió a `develop` con **Squash**, así que para git `develop` no contiene
+   el merge commit de `main`, aunque sí su contenido. Sin este paso, el PR a `main` muestra
+   conflictos en `CHANGELOG.md`, `package.json`, `APP_VERSION` y `openapi.json`. `-s ours` registra
+   `main` como ya integrado sin tocar ningún archivo del release. Antes, comprueba que `main` no
+   tenga nada propio: `git diff origin/main <commit del squash anterior en develop>` debe salir
+   vacío. Si hubo un hotfix que aún no volvió a `develop`, intégralo primero.
+3. **Abre los dos PR antes de mergear ninguno:** `release/X.Y.Z → main` con el título
    `Release X.Y.Z`, y `release/X.Y.Z → develop` con el título `chore: release X.Y.Z`. El borrado
    automático de ramas podría eliminar la rama al mergear el primero; si pasa, el PR mergeado
    tiene el botón *Restore branch*.
-3. Mergea el PR a `main` con **Merge commit** y luego el de `develop` con **Squash**.
-4. Etiqueta el merge commit de `main` y súbelo:
+4. Mergea el PR a `main` con **Merge commit** y luego el de `develop` con **Squash**.
+5. Etiqueta el merge commit de `main` y súbelo:
    ```bash
    git fetch && git tag -a vX.Y.Z origin/main -m "api-drinks X.Y.Z" && git push origin vX.Y.Z
    ```
    Subir el tag **publica la versión**: el workflow *Imagen de la versión* toma la imagen que el
    CI construyó y probó para ese commit y le agrega `X.Y.Z`, `X.Y`, `X` y `latest`. Si hay deploy
    hook, además avisa a Render (ver *CI/CD*).
-5. Opcional: en GitHub, *Releases → Draft a new release*, elige el tag y pega la sección del
+6. Opcional: en GitHub, *Releases → Draft a new release*, elige el tag y pega la sección del
    CHANGELOG.
 
 ### Actualizar una rama: rebase
