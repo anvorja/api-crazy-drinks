@@ -96,7 +96,7 @@ pnpm db:studio                     # explorador visual
 | `main`      | —         | —                           | —                | Lo que está en producción. Cada merge es una versión. |
 | `develop`   | `main`    | —                           | —                | Integración de lo próximo a publicar. |
 | `feature/*` | `develop` | `develop`                   | **Squash**       | Una funcionalidad o cambio: `feature/carta-bares`. |
-| `release/*` | `develop` | `main` y luego `develop`    | **Merge** a `main`; **Squash** a `develop` | Preparar una versión: `release/3.1.0`. Solo ajustes finales. |
+| `release/*` | `develop` | `main` y luego `develop`    | **Merge** a `main`; **Squash** a `develop` | Preparar una versión: `release/4.1.0`. Solo ajustes finales. |
 | `hotfix/*`  | `main`    | `main` y luego `develop`    | **Merge** a `main`; **Squash** a `develop` | Corrección urgente en producción: `hotfix/login-429`. |
 
 - **Nadie hace push directo** a `main` ni a `develop`: todo entra por pull request.
