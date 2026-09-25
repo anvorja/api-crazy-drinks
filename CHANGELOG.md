@@ -9,6 +9,11 @@ versión del contrato HTTP (`/v1`).
 
 ### Añadido
 
+- **Archivos de entorno ordenados.**
+  - `.env.example` es la plantilla que se sube.
+  - `.env` guarda los valores locales y `.env.production` los de Render.
+  - `.gitignore` ignora cualquier `.env*` salvo la plantilla.
+  - Se documenta `PGSSLMODE` para usar una base externa con SSL.
 - **Frontend en local:** `docs/pagos-wompi.md` explica por qué en desarrollo todo debe correr en
   `lvh.me` y no en `localhost`: si no, al volver de Wompi la cookie de sesión no viaja y el
   usuario parece desconectado. Incluye la prueba de login y refresh contra la API en `lvh.me`.
