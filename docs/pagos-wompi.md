@@ -140,6 +140,48 @@ SUBSCRIPTION_PERIOD_DAYS=30
 
 Tras cambiar el `.env`, **reinicia la API**: la configuración se lee al arrancar.
 
+### Frontend en local: todo en `lvh.me`, no en `localhost`
+
+Wompi no acepta `localhost` como URL de retorno, así que al volver de un pago el navegador llega a
+`lvh.me:5173`. Si el frontend corre en `localhost:5173` y la API en `localhost:8090`, al volver del
+pago el usuario estaría en **otro sitio** (`lvh.me` en lugar de `localhost`). El navegador no
+enviaría la cookie de sesión y **parecería que el usuario cerró sesión**.
+
+- **Por qué pasa:** la cookie `refresh_token` es `SameSite=Lax`, y una cookie `Lax` no viaja en las
+  peticiones `fetch` entre sitios distintos.
+- **Se agrava** porque volver de Wompi es una navegación completa: el access token que el frontend
+  tenía en memoria se pierde, y la única forma de recuperar la sesión es la cookie.
+
+**Solución: trabajar todo en `lvh.me` desde el inicio.**
+
+| Pieza | URL en desarrollo | Dónde se configura |
+| ----- | ----------------- | ------------------ |
+| Frontend | `http://lvh.me:5173` | Abre el navegador ahí, no en `localhost` |
+| API | `http://lvh.me:8090` | `VITE_API_URL=http://lvh.me:8090` en el `.env` del frontend |
+| CORS | — | `CORS_ORIGINS=http://lvh.me:5173` en el `.env` de la API |
+| Retorno de Wompi | `http://lvh.me:5173/pago/resultado` | `PAYMENTS_REDIRECT_URL` en el `.env` de la API |
+| Restablecer contraseña | `http://lvh.me:5173/restablecer-contrasena` | `PASSWORD_RESET_URL` en el `.env` de la API, por coherencia |
+
+Así el frontend, la API y el retorno de Wompi quedan en el mismo sitio, y **la sesión sobrevive al
+pago**.
+
+- **Al cargar la app,** incluida la página `/pago/resultado`, el frontend debe llamar a
+  `POST /v1/auth/refresh` con `credentials: 'include'` para recuperar el access token. Después
+  llama a `POST /v1/me/payments/verify`.
+- **La API escucha en todas las interfaces,** así que responde igual en `lvh.me:8090` que en
+  `localhost:8090`.
+- **Si el `Origin` no está en `CORS_ORIGINS`,** el refresh responde `401 ORIGIN_NOT_ALLOWED`.
+
+Probado el 2026-09-25 contra la API en `lvh.me`:
+- El login desde `http://lvh.me:5173` recibe la cookie
+  (`HttpOnly; SameSite=Lax; Path=/v1/auth`), junto con `Access-Control-Allow-Origin` y
+  `Access-Control-Allow-Credentials`.
+- El refresh con esa cookie renueva la sesión.
+- El mismo refresh con `Origin: http://localhost:5173` responde `401 ORIGIN_NOT_ALLOWED`.
+
+**En producción** no pasa nada de esto: el retorno de Wompi apunta al dominio real del frontend
+(https), y la cookie se configura según *Conectar un frontend* en el README.
+
 ## Datos de prueba
 
 **PSE:** en la pantalla del banco se elige el resultado (aprueba, declina o simula error).
@@ -274,6 +316,7 @@ Wompi y haz un pago: el pago queda liquidado sin llamar a `verify`.
 | Wompi dice que la firma de integridad no es válida | `WOMPI_INTEGRITY_SECRET` mal copiado, o de producción con llaves de prueba | Copiar el secreto completo desde el mismo ambiente que la llave pública |
 | `503 PAYMENTS_UNAVAILABLE` al crear el checkout | `PAYMENTS_PROVIDER=none`, o la API no se reinició tras cambiar el `.env` | Configurar y reiniciar |
 | La página de retorno no carga | No hay frontend en ese puerto | Copiar el `id` de la URL y verificarlo a mano |
+| Al volver del pago el usuario aparece sin sesión | Frontend en `localhost` y retorno en `lvh.me`: la cookie no viaja entre sitios | Trabajar todo en `lvh.me` (ver *Frontend en local*) |
 | `403 FORBIDDEN` en `verify` | La transacción es de otro usuario | Verificar con la sesión de quien pagó |
 | `401 INVALID_ACCESS_TOKEN` en `verify` | El access token dura 15 minutos y el pago tardó más | Renovar la sesión (`POST /v1/auth/refresh`) o iniciar sesión de nuevo; el pago sigue verificable |
 | El pago queda `pending` | PSE sin respuesta del banco todavía | Verificar de nuevo más tarde, o esperar el webhook |
