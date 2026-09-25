@@ -54,6 +54,8 @@ import { InMemoryVenueRepository } from '../../src/venues/infrastructure/persist
 import { VENUE_REPOSITORY } from '../../src/venues/infrastructure/tokens.js';
 import { FakeDrinkSource } from './fake-drink-source.js';
 import { FakeMailer } from './fake-mailer.js';
+import { FakeErrorReporter } from './fake-error-reporter.js';
+import { ERROR_REPORTER } from '../../src/shared/infrastructure/observability/error-reporter.js';
 import { FakeWompiGateway } from './fake-wompi.js';
 import { MAILER } from '../../src/shared/infrastructure/mail/mail.module.js';
 import { FakePgPool } from './fake-pg-pool.js';
@@ -65,6 +67,7 @@ export interface TestApp {
   pool: FakePgPool;
   mailer: FakeMailer;
   wompi: FakeWompiGateway;
+  errors: FakeErrorReporter;
 }
 
 /** Full app with every outbound adapter replaced by an in-memory fake. */
@@ -78,6 +81,7 @@ export async function createTestApp(
   const pool = new FakePgPool();
   const mailer = new FakeMailer();
   const wompi = new FakeWompiGateway();
+  const errors = new FakeErrorReporter();
   const fakes: [symbol, unknown][] = [
     [PG_POOL, pool],
     [DRINK_SOURCE, source],
@@ -98,6 +102,7 @@ export async function createTestApp(
     [SUBSCRIPTION_REPOSITORY, new InMemorySubscriptionRepository()],
     [PAYMENT_REPOSITORY, new InMemoryPaymentRepository()],
     [WOMPI_GATEWAY, wompi],
+    [ERROR_REPORTER, errors],
     [VENUE_REPOSITORY, new InMemoryVenueRepository()],
   ];
   let builder = Test.createTestingModule({ imports: [AppModule] });
@@ -115,5 +120,5 @@ export async function createTestApp(
   configureApp(app, app.get<Env>(ENV));
   setupOpenApi(app);
   await app.init();
-  return { app, source, pool, mailer, wompi };
+  return { app, source, pool, mailer, wompi, errors };
 }

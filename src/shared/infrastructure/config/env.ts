@@ -49,6 +49,14 @@ const schema = z
     /** Behind a reverse proxy, trust X-Forwarded-For so login throttling sees the real IP. */
     TRUST_PROXY: booleanString,
     OPENAPI_ENABLED: booleanString,
+    /** json: one JSON object per line (production, log collectors). pretty: for humans. */
+    LOG_FORMAT: z.enum(['json', 'pretty']),
+    LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'log', 'debug', 'verbose']),
+    /** Prometheus metrics at /metrics; if METRICS_TOKEN is set it needs Authorization: Bearer <token>. */
+    METRICS_ENABLED: booleanString,
+    METRICS_TOKEN: optional(z.string().min(16)),
+    /** Unexpected errors are sent to Sentry when set. */
+    SENTRY_DSN: optional(z.url()),
     /** Per-IP request limit (fixed window). postgres: shared by every instance. */
     RATE_LIMIT_ENABLED: booleanString,
     RATE_LIMIT_STORE: z.enum(['memory', 'postgres']),

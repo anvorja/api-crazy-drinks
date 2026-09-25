@@ -33,13 +33,14 @@ describe('web session, CORS, versioning and error codes (e2e)', () => {
   });
 
   describe('error codes', () => {
-    it('every error has statusCode, code, message and error', async () => {
+    it('every error has statusCode, code, message, error and requestId', async () => {
       const res = await http().get('/v1/drinks/4').expect(403);
       expect(res.body).toEqual({
         statusCode: 403,
         code: 'AGE_RESTRICTED',
         message: expect.any(String),
         error: 'ForbiddenError',
+        requestId: expect.any(String),
       });
     });
 

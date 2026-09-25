@@ -1,5 +1,7 @@
 import { VersioningType } from '@nestjs/common';
+import type { NextFunction, Request, Response } from 'express';
 import helmet from 'helmet';
+import { Metrics } from '../observability/metrics.js';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import type { Env } from '../config/env.js';
 
@@ -17,6 +19,30 @@ export function configureApp(app: NestExpressApplication, env: Env): void {
     }),
   );
   app.useBodyParser('json', { limit: `${env.BODY_LIMIT_KB}kb` });
+  if (env.METRICS_ENABLED) {
+    // Plain Express route: outside Nest guards, so its Bearer token is not a user JWT.
+    const metrics = app.get(Metrics);
+    app.use(
+      '/metrics',
+      async (req: Request, res: Response, next: NextFunction) => {
+        if (req.method !== 'GET') return next();
+        if (
+          env.METRICS_TOKEN &&
+          req.headers.authorization !== `Bearer ${env.METRICS_TOKEN}`
+        ) {
+          res.status(401).json({
+            statusCode: 401,
+            code: 'UNAUTHORIZED',
+            message: 'Metrics token required',
+            error: 'Unauthorized',
+          });
+          return;
+        }
+        res.setHeader('Content-Type', metrics.registry.contentType);
+        res.send(await metrics.registry.metrics());
+      },
+    );
+  }
   // /v1/...; health checks and the index stay unversioned (see VERSION_NEUTRAL).
   app.enableVersioning({
     type: VersioningType.URI,
@@ -34,6 +60,7 @@ export function configureApp(app: NestExpressApplication, env: Env): void {
       'X-RateLimit-Limit',
       'X-RateLimit-Remaining',
       'X-RateLimit-Reset',
+      'X-Request-Id',
     ],
   });
 }

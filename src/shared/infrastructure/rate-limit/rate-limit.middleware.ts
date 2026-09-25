@@ -8,7 +8,7 @@ import type { RateLimitStore } from './rate-limit.store.js';
 export const RATE_LIMIT_STORE = Symbol('RateLimitStore');
 
 /** Not limited: infrastructure probes, docs, and provider webhooks (already signed). */
-const EXEMPT = /^\/(health|docs)(\/|$)|^\/v\d+\/webhooks\//;
+const EXEMPT = /^\/(health|docs|metrics)(\/|$)|^\/v\d+\/webhooks\//;
 /** Expensive per request: image rendering, and search-as-you-type. */
 const HEAVY = /\/card\.(png|svg)$|\/drinks\/suggest$/;
 

@@ -4,9 +4,15 @@ import {
   ExceptionFilter,
   HttpException,
   HttpStatus,
+  Inject,
   Logger,
 } from '@nestjs/common';
 import type { Response } from 'express';
+import {
+  ERROR_REPORTER,
+  type ErrorReporter,
+} from '../observability/error-reporter.js';
+import type { RequestWithId } from '../observability/request-context.middleware.js';
 import {
   DomainError,
   DomainErrorKind,
@@ -44,6 +50,8 @@ export interface ErrorBody {
   message: string;
   error: string;
   details?: { path: string; message: string }[];
+  /** Same as the X-Request-Id header: quote it when reporting a problem. */
+  requestId?: string;
 }
 
 /**
@@ -54,16 +62,22 @@ export interface ErrorBody {
 export class ApiExceptionFilter implements ExceptionFilter {
   private readonly logger = new Logger(ApiExceptionFilter.name);
 
+  constructor(
+    @Inject(ERROR_REPORTER) private readonly reporter: ErrorReporter,
+  ) {}
+
   catch(exception: unknown, host: ArgumentsHost): void {
-    const response = host.switchToHttp().getResponse<Response>();
-    const body = this.toBody(exception);
+    const http = host.switchToHttp();
+    const response = http.getResponse<Response>();
+    const request = http.getRequest<RequestWithId>();
+    const body = { ...this.toBody(exception, request), requestId: request.id };
     if (exception instanceof RateLimitedError) {
       response.setHeader('Retry-After', String(exception.retryAfterSeconds));
     }
     response.status(body.statusCode).json(body);
   }
 
-  private toBody(exception: unknown): ErrorBody {
+  private toBody(exception: unknown, request: RequestWithId): ErrorBody {
     if (exception instanceof DomainError) {
       return {
         statusCode: STATUS[exception.kind],
@@ -94,11 +108,22 @@ export class ApiExceptionFilter implements ExceptionFilter {
     }
     const bodyError = bodyParserError(exception);
     if (bodyError) return bodyError;
-    this.logger.error(
-      exception instanceof Error
-        ? (exception.stack ?? exception.message)
-        : exception,
-    );
+    const path = request.originalUrl?.split('?')[0];
+    this.logger.error({
+      msg: 'unexpected error',
+      requestId: request.id,
+      method: request.method,
+      path,
+      error:
+        exception instanceof Error
+          ? (exception.stack ?? exception.message)
+          : String(exception),
+    });
+    this.reporter.report(exception, {
+      requestId: request.id,
+      method: request.method,
+      path,
+    });
     return {
       statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
       code: 'INTERNAL_ERROR',
