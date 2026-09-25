@@ -21,8 +21,28 @@ export interface Payment {
   status: PaymentStatus;
   /** The gateway's transaction id, once known. */
   transactionId: string | null;
+  /** Until when its checkout link can be paid (the gateway rejects it afterwards). */
+  expiresAt: Date;
   createdAt: Date;
   updatedAt: Date;
+}
+
+/**
+ * What a person sees. A checkout that expired before any transaction started is `expired`:
+ * it can no longer be paid. It is derived, not stored, so a late outcome of a transaction that
+ * did start in time (a slow PSE) still settles the payment normally.
+ */
+export const PAYMENT_VIEW_STATUSES = [...PAYMENT_STATUSES, 'expired'] as const;
+export type PaymentView = Omit<Payment, 'status'> & {
+  status: (typeof PAYMENT_VIEW_STATUSES)[number];
+};
+
+export function viewOf(payment: Payment, now: Date): PaymentView {
+  const abandoned =
+    payment.status === 'pending' &&
+    payment.transactionId === null &&
+    now >= payment.expiresAt;
+  return abandoned ? { ...payment, status: 'expired' } : payment;
 }
 
 export interface PaymentRepository {

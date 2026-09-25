@@ -51,10 +51,13 @@ reintenta el evento.
 
 - guarda un pago `pending` con el precio del plan en la tabla `plans`, que es la única fuente del
   precio;
-- firma la integridad: `SHA256(referencia + monto_en_centavos + moneda + WOMPI_INTEGRITY_SECRET)`.
-  Así nadie puede cambiar el monto en la URL;
+- le pone un vencimiento: `expiresAt` = ahora + `PAYMENTS_CHECKOUT_TTL_MINUTES`;
+- firma la integridad:
+  `SHA256(referencia + monto_en_centavos + moneda + expiration-time + WOMPI_INTEGRITY_SECRET)`.
+  Así nadie puede cambiar el monto ni el vencimiento en la URL;
 - devuelve `checkoutUrl` con `public-key`, `currency`, `amount-in-cents`, `reference`,
-  `signature:integrity`, `redirect-url` y `customer-data:email`.
+  `signature:integrity`, `expiration-time`, `redirect-url` y `customer-data:email`. Wompi muestra
+  la cuenta regresiva ("Este pago vence en…") y después ya no acepta el enlace.
 
 ### 2. Pantallas de Wompi
 
@@ -104,8 +107,13 @@ La respuesta es el pago con su estado:
   Verificarlo otra vez devuelve lo mismo y no extiende el plan de nuevo.
 - **Periodo:** un pago aprobado activa el plan por `SUBSCRIPTION_PERIOD_DAYS` (30). Si se renueva el
   mismo plan mientras sigue vigente, el periodo se suma al final; si es otro plan, empieza hoy.
-- **Checkout abandonado:** si el usuario no paga, su pago queda `pending` para siempre en el
-  historial (`GET /v1/me/payments`). No activa nada ni molesta: cada intento crea un pago nuevo.
+- **Checkout abandonado:** si el enlace vence sin que empiece ninguna transacción, el pago aparece
+  como **`expired`** en `GET /v1/me/payments`. Ya no se puede pagar y no activa nada.
+  - El estado se calcula al leer, no se guarda, así que no hace falta ningún proceso programado.
+  - Si una transacción empezó a tiempo (por ejemplo, un PSE lento), el pago sigue `pending` hasta
+    que llegue su resultado, que lo liquida normalmente.
+  - Cada intento crea un pago nuevo. El frontend oculta los vencidos del historial, con la opción
+    de verlos.
 - **Webhook firmado:** el checksum de cada evento se comprueba con `WOMPI_EVENTS_SECRET` (SHA-256 de
   las propiedades listadas en `signature.properties`, el `timestamp` y el secreto). Si no coincide,
   la API responde `401 INVALID_WEBHOOK_SIGNATURE`.
@@ -131,6 +139,7 @@ WOMPI_API_URL=https://sandbox.wompi.co/v1
 WOMPI_CHECKOUT_URL=https://checkout.wompi.co/p/
 PAYMENTS_REDIRECT_URL=http://lvh.me:5173/pago/resultado
 SUBSCRIPTION_PERIOD_DAYS=30
+PAYMENTS_CHECKOUT_TTL_MINUTES=60   # 5-1440: minutos para pagar el enlace
 ```
 
 > **`PAYMENTS_REDIRECT_URL` no puede ser `localhost` ni `127.0.0.1`.** El firewall de Wompi
@@ -295,15 +304,14 @@ Lo que envía la API hoy:
 | `currency` | Moneda del plan (`COP`) | **Sí** |
 | `amount-in-cents` | Precio del plan × 100 | **Sí** |
 | `reference` | `drinks-<id del pago>` | **Sí** |
-| `signature:integrity` | `SHA256(reference + amount-in-cents + currency + WOMPI_INTEGRITY_SECRET)` | — |
+| `expiration-time` | `expiresAt` en ISO 8601 UTC (ahora + `PAYMENTS_CHECKOUT_TTL_MINUTES`) | **Sí** |
+| `signature:integrity` | `SHA256(reference + amount-in-cents + currency + expiration-time + WOMPI_INTEGRITY_SECRET)` | — |
 | `redirect-url` | `PAYMENTS_REDIRECT_URL` | No |
 | `customer-data:email` | Correo del usuario | No |
 
 Wompi acepta otros parámetros opcionales que la API todavía no envía (ver su
 [guía del Web Checkout](https://docs.wompi.co/docs/colombia/widget-checkout-web/)):
 
-- `expiration-time`: vencimiento en ISO 8601 UTC. **Si se usa, entra en la firma**:
-  `SHA256(reference + amount + currency + expiration-time + secreto)`.
 - `tax-in-cents:vat` y `tax-in-cents:consumption`: impuestos.
 - `customer-data:full-name`, `customer-data:phone-number`, `customer-data:phone-number-prefix`,
   `customer-data:legal-id` y `customer-data:legal-id-type`: rellenan los datos del comprador.
@@ -319,8 +327,11 @@ referencia no existirá en `payments`:
 
 ```bash
 ref="prueba-$(date +%s)"; amount=150000; currency=COP
-printf '%s' "${ref}${amount}${currency}${WOMPI_INTEGRITY_SECRET}" | sha256sum | cut -d' ' -f1
+exp="$(date -u -d '+1 hour' +%Y-%m-%dT%H:%M:%S.000Z)"
+printf '%s' "${ref}${amount}${currency}${exp}${WOMPI_INTEGRITY_SECRET}" | sha256sum | cut -d' ' -f1
 ```
+
+Sin `expiration-time` en la URL, se omite también de la firma.
 
 ## Probar sin frontend
 
@@ -378,3 +389,5 @@ Wompi y haz un pago: el pago queda liquidado sin llamar a `verify`.
 | 2026-09-25 | PSE, "banco aprueba" | `APPROVED`, $89.000 COP | Plan Pro activo por 30 días. Una segunda verificación no extendió el periodo, y otro usuario recibió `403` al reclamar la transacción |
 | 2026-09-25 | Tarjeta VISA `4242…` | `APPROVED`, $89.000 COP | Una cuenta en free pasó a Pro por 30 días; verificar de nuevo no cambió nada |
 | 2026-09-25 | Tarjeta VISA `4111…` | `DECLINED` ("La transacción fue rechazada (Sandbox)") | Pago `declined`. La cuenta ya tenía Pro y su periodo no cambió |
+| 2026-09-25 | **Staging** (Netlify + Render), cuenta personal, Business con tarjeta | `APPROVED`, $249.000 COP (`12199767-1790343512-58517`) | La sesión sobrevivió a la vuelta de Wompi gracias al proxy de `/v1`. El evento `transaction.updated` llegó a Render a las 08:38:36 con estado _Exitoso_, a la misma hora que el `updatedAt` del pago: el **webhook** liquidó el pago y `verify` no lo repitió. Plan Business por 30 días y cuota de API de 100.000 peticiones/día |
+| 2026-09-25 | Tarjeta VISA `4242…` con **`expiration-time`** | `APPROVED`, $89.000 COP (`12199767-1790344274-10167`); el checkout mostró "Este pago vence en 0 h 59 min" | Wompi aceptó la firma con vencimiento y `verify` dejó el pago `approved`. Otro checkout sin pagar, con el enlace vencido, apareció como `expired` sin tocar el aprobado |

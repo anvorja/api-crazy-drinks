@@ -52,10 +52,15 @@ const toOutcome = (t: WompiTransactionDto): PaymentOutcome => ({
 export class WompiGateway implements PaymentGateway {
   constructor(private readonly settings: WompiSettings) {}
 
-  /** Web Checkout URL. The integrity signature is SHA256(reference + amount + currency + secret). */
+  /**
+   * Web Checkout URL. With an expiration time the integrity signature is
+   * SHA256(reference + amount + currency + expirationTime + secret); after that time Wompi
+   * refuses to charge the link.
+   */
   checkoutUrl(payment: Payment, customer: { email: string }): string {
+    const expirationTime = payment.expiresAt.toISOString();
     const signature = sha256(
-      `${payment.reference}${payment.amountInCents}${payment.currency}${this.settings.integritySecret}`,
+      `${payment.reference}${payment.amountInCents}${payment.currency}${expirationTime}${this.settings.integritySecret}`,
     );
     const params = new URLSearchParams({
       'public-key': this.settings.publicKey,
@@ -63,6 +68,7 @@ export class WompiGateway implements PaymentGateway {
       'amount-in-cents': String(payment.amountInCents),
       reference: payment.reference,
       'signature:integrity': signature,
+      'expiration-time': expirationTime,
       'redirect-url': this.settings.redirectUrl,
       'customer-data:email': customer.email,
     });

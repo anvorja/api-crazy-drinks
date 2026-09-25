@@ -25,7 +25,7 @@ describe('payments with Wompi (e2e)', () => {
         .send({ planId })
         .expect(201)
     ).body as {
-      payment: { reference: string; amount: number };
+      payment: { reference: string; amount: number; expiresAt: string };
       checkoutUrl: string;
     };
 
@@ -46,6 +46,25 @@ describe('payments with Wompi (e2e)', () => {
     expect(url.searchParams.get('signature:integrity')).toMatch(
       /^[a-f0-9]{64}$/,
     );
+  });
+
+  it('the checkout link expires after PAYMENTS_CHECKOUT_TTL_MINUTES', async () => {
+    const before = Date.now();
+    const { payment, checkoutUrl } = await checkout();
+    const expiresAt = Date.parse(payment.expiresAt);
+    // TEST_ENV: 60 minutes.
+    expect(expiresAt - before).toBeGreaterThanOrEqual(60 * 60_000 - 1000);
+    expect(expiresAt - before).toBeLessThanOrEqual(60 * 60_000 + 5000);
+    expect(new URL(checkoutUrl).searchParams.get('expiration-time')).toBe(
+      payment.expiresAt,
+    );
+    const [listed] = (
+      await http().get('/v1/me/payments').set(bearer(token)).expect(200)
+    ).body as { status: string; expiresAt: string }[];
+    expect(listed).toMatchObject({
+      status: 'pending',
+      expiresAt: payment.expiresAt,
+    });
   });
 
   it('an approved webhook activates the plan, once', async () => {
