@@ -103,7 +103,7 @@ Contraseña de todas: **`ApiDrinks2026`**, salvo la de Andrés Borja (`##AndresB
 | Correo | Rol | Edad | Qué trae |
 | ------ | --- | ---- | -------- |
 | `admin.demo@api-drinks.local` | `admin` | adulto | Todo: roles, suscripciones, cualquier bar |
-| `premium@api-drinks.local` | `premium` | adulto | Laura: 6 favoritos, 9 swipes, despensa, ADN compartido en `/v1/taste/laura-demo-adn` y 5 partidas de Cocktle. Su ADN ("El ácido rebelde con alma frutal") y sus recomendaciones salen de inmediato |
+| `premium@api-drinks.local` | `premium` | adulto | Laura: 6 favoritos, 9 swipes, despensa, ADN compartido en `/v1/taste/laura-demo-adn` y 5 partidas de Cocktle. Su ADN ("Espíritu ácido y rebelde con alma frutal") y sus recomendaciones salen de inmediato |
 | `bar@api-drinks.local` | `venue_owner` | adulto | Carlos: bar "La Barra Demo" (Cali, COP) con 18 insumos, plan **Pro** activo por un año desde la migración y su pago aprobado. La carta muestra costos, precios y márgenes |
 | `bartender@api-drinks.local` | `bartender` | adulto | Sin datos |
 | `basico@api-drinks.local` | `user` | adulto | Recién registrado: sin ADN todavía |

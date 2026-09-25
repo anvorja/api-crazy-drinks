@@ -5770,7 +5770,7 @@
           },
           "personality": {
             "type": "string",
-            "example": "El que no perdona con alma cítrica"
+            "example": "Carácter que no perdona con alma cítrica"
           },
           "strength": {
             "type": "string",
@@ -6194,7 +6194,7 @@
           },
           "personality": {
             "type": "string",
-            "example": "El ácido rebelde con alma frutal"
+            "example": "Espíritu ácido y rebelde con alma frutal"
           },
           "preferredStrength": {
             "type": "string",
