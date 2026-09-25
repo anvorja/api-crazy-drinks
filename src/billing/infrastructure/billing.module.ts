@@ -119,6 +119,7 @@ import {
         env.PAYMENTS_PROVIDER === 'wompi'
           ? new WompiGateway({
               publicKey: env.WOMPI_PUBLIC_KEY!,
+              privateKey: env.WOMPI_PRIVATE_KEY!,
               integritySecret: env.WOMPI_INTEGRITY_SECRET!,
               eventsSecret: env.WOMPI_EVENTS_SECRET!,
               apiUrl: env.WOMPI_API_URL!,

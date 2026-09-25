@@ -48,6 +48,7 @@ describe('parseEnv', () => {
       ...TEST_ENV,
       PAYMENTS_PROVIDER: 'wompi',
       WOMPI_PUBLIC_KEY: 'pub_test_x',
+      WOMPI_PRIVATE_KEY: 'prv_test_x',
       WOMPI_INTEGRITY_SECRET: 'test_integrity_x',
       WOMPI_EVENTS_SECRET: 'test_events_x',
       WOMPI_API_URL: 'https://sandbox.wompi.co/v1',
@@ -65,6 +66,21 @@ describe('parseEnv', () => {
         PAYMENTS_REDIRECT_URL: 'http://lvh.me:5173/pago/resultado',
       }).PAYMENTS_PROVIDER,
     ).toBe('wompi');
+  });
+
+  it('Wompi needs the private key, and only a prv_ key', () => {
+    const wompi = {
+      ...TEST_ENV,
+      PAYMENTS_PROVIDER: 'wompi',
+      PAYMENTS_REDIRECT_URL: 'http://lvh.me:5173/pago/resultado',
+    };
+    const withoutKey = Object.fromEntries(
+      Object.entries(wompi).filter(([key]) => key !== 'WOMPI_PRIVATE_KEY'),
+    );
+    expect(() => parseEnv(withoutKey)).toThrow('WOMPI_*');
+    expect(() =>
+      parseEnv({ ...wompi, WOMPI_PRIVATE_KEY: 'pub_test_x' }),
+    ).toThrow('prv_test_');
   });
 
   it('the snapshot catalog needs no TheCocktailDB settings; cocktaildb needs them', () => {

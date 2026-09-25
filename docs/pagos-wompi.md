@@ -127,12 +127,13 @@ En Wompi, activa el **modo de pruebas** y ve a **Desarrolladores → Programador
 | Llave pública `pub_test_…` | `WOMPI_PUBLIC_KEY` | Va en la URL del checkout |
 | Secreto de integridad `test_integrity_…` | `WOMPI_INTEGRITY_SECRET` | Firma el monto |
 | Secreto de eventos `test_events_…` | `WOMPI_EVENTS_SECRET` | Verifica el webhook |
-| Llave privada `prv_test_…` | — | **No se usa** |
+| Llave privada `prv_test_…` | `WOMPI_PRIVATE_KEY` | Consulta la transacción al volver del pago (`verify`). Wompi ya no responde esa consulta sin ella: devuelve `404` aunque la transacción exista. Solo en el servidor |
 | URL de Eventos | — | `https://<tu-api>/v1/webhooks/wompi`; necesita una URL pública |
 
 ```dotenv
 PAYMENTS_PROVIDER=wompi
 WOMPI_PUBLIC_KEY=pub_test_...
+WOMPI_PRIVATE_KEY=prv_test_...
 WOMPI_INTEGRITY_SECRET=test_integrity_...
 WOMPI_EVENTS_SECRET=test_events_...
 WOMPI_API_URL=https://sandbox.wompi.co/v1
