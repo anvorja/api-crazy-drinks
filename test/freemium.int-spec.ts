@@ -230,6 +230,7 @@ describe('freemium repositories (Postgres)', () => {
         currency: 'COP',
         status: 'pending' as const,
         transactionId: null,
+        expiresAt: new Date('2026-01-01T01:00:00Z'),
         createdAt: new Date('2026-01-01T00:00:00Z'),
         updatedAt: new Date('2026-01-01T00:00:00Z'),
       };

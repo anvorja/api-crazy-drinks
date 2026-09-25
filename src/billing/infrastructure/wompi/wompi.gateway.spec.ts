@@ -29,6 +29,7 @@ describe('WompiGateway', () => {
           currency: 'COP',
           status: 'pending',
           transactionId: null,
+          expiresAt: new Date('2026-09-25T14:00:00.000Z'),
           createdAt: new Date(),
           updatedAt: new Date(),
         },
@@ -41,7 +42,11 @@ describe('WompiGateway', () => {
       currency: 'COP',
       'amount-in-cents': '8900000',
       reference: 'drinks-p1',
-      'signature:integrity': sha256('drinks-p18900000COPtest_integrity_xyz'),
+      // With expiration-time, it goes before the secret in the integrity signature.
+      'signature:integrity': sha256(
+        'drinks-p18900000COP2026-09-25T14:00:00.000Ztest_integrity_xyz',
+      ),
+      'expiration-time': '2026-09-25T14:00:00.000Z',
       'redirect-url': 'https://app.example.com/pago',
       'customer-data:email': 'ana@example.com',
     });

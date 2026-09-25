@@ -138,7 +138,11 @@ import {
         gateway: WompiGateway | null,
         ids: IdGenerator,
         clock: Clock,
-      ) => new StartCheckout(plans, payments, users, gateway, ids, clock),
+        env: Env,
+      ) =>
+        new StartCheckout(plans, payments, users, gateway, ids, clock, {
+          ttlMinutes: env.PAYMENTS_CHECKOUT_TTL_MINUTES,
+        }),
       [
         PLAN_REPOSITORY,
         PAYMENT_REPOSITORY,
@@ -146,6 +150,7 @@ import {
         WOMPI_GATEWAY,
         ID_GENERATOR,
         CLOCK,
+        ENV,
       ],
     ),
     provide(
@@ -172,8 +177,9 @@ import {
     ),
     provide(
       ListMyPayments,
-      (payments: PaymentRepository) => new ListMyPayments(payments),
-      [PAYMENT_REPOSITORY],
+      (payments: PaymentRepository, clock: Clock) =>
+        new ListMyPayments(payments, clock),
+      [PAYMENT_REPOSITORY, CLOCK],
     ),
   ],
   exports: [GetPlanLimits],

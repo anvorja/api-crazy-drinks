@@ -47,6 +47,7 @@ export const TEST_ENV: Record<string, string> = {
   PASSWORD_RESET_WINDOW_SECONDS: '3600',
   PAYMENTS_PROVIDER: 'wompi',
   SUBSCRIPTION_PERIOD_DAYS: '30',
+  PAYMENTS_CHECKOUT_TTL_MINUTES: '60',
   PAYMENTS_REDIRECT_URL: 'http://app.test/pago',
   WOMPI_PUBLIC_KEY: 'pub_test_fake',
   WOMPI_INTEGRITY_SECRET: 'test_integrity_fake',

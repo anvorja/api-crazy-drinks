@@ -1466,9 +1466,15 @@ export interface components {
       amount: number;
       /** @example COP */
       currency: string;
-      /** @enum {string} */
-      status: 'pending' | 'approved' | 'declined' | 'voided' | 'error';
+      /**
+       * @description expired: the checkout link expired before any transaction started (it can no longer be paid)
+       * @enum {string}
+       */
+      status:
+        'pending' | 'approved' | 'declined' | 'voided' | 'error' | 'expired';
       transactionId: string | null;
+      /** @description Until when the checkout link can be paid */
+      expiresAt: string;
       createdAt: string;
       updatedAt: string;
     };

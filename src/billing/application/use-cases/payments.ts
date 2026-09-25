@@ -14,15 +14,22 @@ import {
   Payment,
   PaymentOutcome,
   PaymentRepository,
+  PaymentView,
   extendSubscription,
   settle,
   toCents,
+  viewOf,
 } from '../../domain/payment.js';
 import { PaymentGateway } from '../ports/payment-gateway.port.js';
 import { UserDirectory } from '../ports/user-directory.port.js';
 
 export interface PaymentSettings {
   periodDays: number;
+}
+
+export interface CheckoutSettings {
+  /** How long the checkout link can be paid. */
+  ttlMinutes: number;
 }
 
 const unavailable = () =>
@@ -37,6 +44,7 @@ export class StartCheckout {
     private readonly gateway: PaymentGateway | null,
     private readonly ids: IdGenerator,
     private readonly clock: Clock,
+    private readonly settings: CheckoutSettings,
   ) {}
 
   async execute(
@@ -67,6 +75,7 @@ export class StartCheckout {
       currency: plan.currency,
       status: 'pending',
       transactionId: null,
+      expiresAt: new Date(now.getTime() + this.settings.ttlMinutes * 60_000),
       createdAt: now,
       updatedAt: now,
     };
@@ -131,10 +140,17 @@ export class VerifyPayment {
   }
 }
 
+/** The person's payments, with abandoned checkouts shown as expired. */
 export class ListMyPayments {
-  constructor(private readonly payments: PaymentRepository) {}
+  constructor(
+    private readonly payments: PaymentRepository,
+    private readonly clock: Clock,
+  ) {}
 
-  execute(actor: Principal): Promise<Payment[]> {
-    return this.payments.listByUser(actor.userId);
+  async execute(actor: Principal): Promise<PaymentView[]> {
+    const now = this.clock.now();
+    return (await this.payments.listByUser(actor.userId)).map((p) =>
+      viewOf(p, now),
+    );
   }
 }

@@ -1,4 +1,10 @@
-import { Payment, extendSubscription, settle, toCents } from './payment.js';
+import {
+  Payment,
+  extendSubscription,
+  settle,
+  toCents,
+  viewOf,
+} from './payment.js';
 
 const DAY = 86_400_000;
 const now = new Date('2026-09-24T12:00:00Z');
@@ -11,6 +17,7 @@ const payment: Payment = {
   currency: 'COP',
   status: 'pending',
   transactionId: null,
+  expiresAt: new Date(now.getTime() + 60 * 60_000),
   createdAt: now,
   updatedAt: now,
 };
@@ -54,5 +61,25 @@ describe('payments', () => {
       now,
     );
     expect(otherPlan.currentPeriodEnd.getTime()).toBe(now.getTime() + 30 * DAY);
+  });
+
+  describe('viewOf', () => {
+    const later = new Date(payment.expiresAt.getTime() + 1);
+
+    it('shows an unpaid checkout as expired once its link expired', () => {
+      expect(viewOf(payment, now).status).toBe('pending');
+      expect(viewOf(payment, payment.expiresAt).status).toBe('expired');
+      expect(viewOf(payment, later).status).toBe('expired');
+    });
+
+    it('keeps a started transaction pending (a slow PSE may still settle)', () => {
+      const started = { ...payment, transactionId: 't1' };
+      expect(viewOf(started, later).status).toBe('pending');
+    });
+
+    it('never touches settled payments', () => {
+      const approved = settle(payment, outcome, now);
+      expect(viewOf(approved, later).status).toBe('approved');
+    });
   });
 });

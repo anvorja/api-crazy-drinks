@@ -7,6 +7,19 @@ versión del contrato HTTP (`/v1`).
 
 ## [Unreleased]
 
+### Añadido
+
+- **Los checkouts vencen.**
+  - El enlace de Wompi lleva `expiration-time`, firmado en la integridad, con el plazo de la
+    nueva variable `PAYMENTS_CHECKOUT_TTL_MINUTES`.
+  - Un pago sin transacción cuyo enlace venció aparece como **`expired`** en
+    `GET /v1/me/payments`, en lugar de `pending` para siempre. Se calcula al leer.
+  - `Payment` expone `expiresAt`.
+  - Migración `0014`: columna `expires_at`; los pagos existentes quedan con su creación más
+    60 minutos.
+- **Registro de pruebas** de pagos en staging (Netlify + Render, webhook incluido) y con
+  `expiration-time`.
+
 ### Cambiado
 
 - **Errores de Render legibles.** Si Render rechaza el despliegue o la consulta de su estado, el

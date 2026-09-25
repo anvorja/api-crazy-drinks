@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { PAYMENT_STATUSES, Payment } from '../../../domain/payment.js';
+import { PAYMENT_VIEW_STATUSES, PaymentView } from '../../../domain/payment.js';
 
 export const checkoutBodySchema = z
   .object({ planId: z.string().min(1).meta({ example: 'pro' }) })
@@ -25,8 +25,14 @@ export const paymentResponseSchema = z
       .number()
       .meta({ description: 'In currency units (not cents)', example: 89000 }),
     currency: z.string().meta({ example: 'COP' }),
-    status: z.enum(PAYMENT_STATUSES),
+    status: z.enum(PAYMENT_VIEW_STATUSES).meta({
+      description:
+        'expired: the checkout link expired before any transaction started (it can no longer be paid)',
+    }),
     transactionId: z.string().nullable(),
+    expiresAt: z
+      .string()
+      .meta({ description: 'Until when the checkout link can be paid' }),
     createdAt: z.string(),
     updatedAt: z.string(),
   })
@@ -45,7 +51,7 @@ export const checkoutResponseSchema = z
   .meta({ id: 'Checkout' });
 
 export const toPaymentResponse = (
-  p: Payment,
+  p: PaymentView,
 ): z.infer<typeof paymentResponseSchema> => ({
   id: p.id,
   reference: p.reference,
@@ -54,6 +60,7 @@ export const toPaymentResponse = (
   currency: p.currency,
   status: p.status,
   transactionId: p.transactionId,
+  expiresAt: p.expiresAt.toISOString(),
   createdAt: p.createdAt.toISOString(),
   updatedAt: p.updatedAt.toISOString(),
 });

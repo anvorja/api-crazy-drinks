@@ -124,6 +124,8 @@ const schema = z
     PAYMENTS_PROVIDER: z.enum(['none', 'wompi']),
     /** Days a paid period lasts. */
     SUBSCRIPTION_PERIOD_DAYS: z.coerce.number().int().min(1).max(366),
+    /** How long a checkout link can be paid; afterwards an unpaid one shows as expired. */
+    PAYMENTS_CHECKOUT_TTL_MINUTES: z.coerce.number().int().min(5).max(1440),
     /** Frontend page the checkout returns to (Wompi appends ?id=<transactionId>). */
     PAYMENTS_REDIRECT_URL: optional(z.url()),
     WOMPI_PUBLIC_KEY: optional(

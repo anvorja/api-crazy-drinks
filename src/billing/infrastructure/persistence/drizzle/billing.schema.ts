@@ -67,6 +67,7 @@ export const paymentsTable = pgTable(
     currency: char('currency', { length: 3 }).notNull(),
     status: paymentStatusEnum('status').notNull(),
     transactionId: text('transaction_id'),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull(),
   },
