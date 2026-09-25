@@ -26,6 +26,9 @@ versión del contrato HTTP (`/v1`).
 - **Cuentas demo:** la migración `0013_seed_demo_users.sql` crea 7 cuentas con datos
   sintéticos, una por rol más un menor de edad. La premium trae historial, ADN y Cocktle, y el
   dueño de bar trae bar, inventario y plan Pro. Ver README, *Cuentas demo*.
+- **Wompi en local:** la API no arranca si `PAYMENTS_PROVIDER=wompi` y `PAYMENTS_REDIRECT_URL`
+  apunta a `localhost`, porque el firewall de Wompi bloquea ese checkout con un `403`. En local se
+  usa `http://lvh.me:<puerto>/…`. Probado en sandbox con un pago PSE aprobado.
 - **Documentación:** los datos de las bebidas son gratis. Los planes pagos cubren solo funciones
   propias (bares, inventario, carta con márgenes y API keys de bares).
 

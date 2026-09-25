@@ -770,11 +770,25 @@ PayU…) sería otro adaptador.
    las llaves de pruebas: `pub_test_…`, el secreto de integridad `test_integrity_…` y el de eventos
    `test_events_…`.
 2. En `.env`: `PAYMENTS_PROVIDER=wompi`, las tres llaves y `WOMPI_API_URL=https://sandbox.wompi.co/v1`.
+   La llave privada (`prv_test_…`) no se usa.
+   - **`PAYMENTS_REDIRECT_URL` no puede apuntar a `localhost` ni a `127.0.0.1`.** El firewall de
+     Wompi responde `403` en el checkout, y por eso la API no arranca con esa configuración. En local
+     usa `http://lvh.me:5173/…`: `lvh.me` es un dominio público que resuelve a `127.0.0.1`, así que
+     el navegador vuelve igual a tu frontend. Si el frontend se abre en `lvh.me`, agrega
+     `http://lvh.me:5173` a `CORS_ORIGINS`.
 3. Para recibir el webhook en local, expón la API, por ejemplo con
    `cloudflared tunnel --url http://localhost:8090`, y registra `https://…/v1/webhooks/wompi` como
    URL de eventos en Wompi. Sin túnel, `POST /me/payments/verify` confirma el pago igual.
 4. Paga con las tarjetas de prueba de la
-   [documentación de sandbox](https://docs.wompi.co/docs/colombia/datos-de-prueba-en-sandbox/).
+   [documentación de sandbox](https://docs.wompi.co/docs/colombia/datos-de-prueba-en-sandbox/)
+   (`4242 4242 4242 4242` aprobada, `4111 1111 1111 1111` rechazada) o con PSE, eligiendo el
+   resultado del banco simulado.
+5. Sin frontend, copia el `id` de la URL a la que vuelve Wompi y confírmalo con
+   `POST /v1/me/payments/verify`.
+
+Probado en sandbox el 2026-09-25: un pago PSE aprobado de $89.000 activó el plan Pro por 30 días.
+Una segunda verificación no extendió el periodo, y otro usuario que intentó reclamar la misma
+transacción recibió `403`.
 
 ### Explorar el catálogo
 
