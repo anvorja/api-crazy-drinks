@@ -29,6 +29,9 @@ versión del contrato HTTP (`/v1`).
 - **Wompi en local:** la API no arranca si `PAYMENTS_PROVIDER=wompi` y `PAYMENTS_REDIRECT_URL`
   apunta a `localhost`, porque el firewall de Wompi bloquea ese checkout con un `403`. En local se
   usa `http://lvh.me:<puerto>/…`. Probado en sandbox con un pago PSE aprobado.
+- **Guía de pagos:** `docs/pagos-wompi.md` documenta el flujo de Wompi pantalla por pantalla, los
+  datos de prueba, los problemas comunes y el registro de pruebas en sandbox (PSE y tarjetas
+  aprobada y rechazada).
 - **Documentación:** los datos de las bebidas son gratis. Los planes pagos cubren solo funciones
   propias (bares, inventario, carta con márgenes y API keys de bares).
 
