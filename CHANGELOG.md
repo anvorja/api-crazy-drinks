@@ -9,6 +9,9 @@ versión del contrato HTTP (`/v1`).
 
 ### Añadido
 
+- **Pagos en producción** (`docs/pagos-wompi.md`): por qué el frontend usa un proxy de `/v1` cuando
+  vive en otro sitio (Netlify y Render), el recorrido de la vuelta desde Wompi y las pruebas
+  contra Render.
 - **Archivos de entorno ordenados.**
   - `.env.example` es la plantilla que se sube.
   - `.env` guarda los valores locales y `.env.production` los de Render.

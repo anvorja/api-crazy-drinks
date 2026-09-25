@@ -179,8 +179,49 @@ Probado el 2026-09-25 contra la API en `lvh.me`:
 - El refresh con esa cookie renueva la sesión.
 - El mismo refresh con `Origin: http://localhost:5173` responde `401 ORIGIN_NOT_ALLOWED`.
 
-**En producción** no pasa nada de esto: el retorno de Wompi apunta al dominio real del frontend
-(https), y la cookie se configura según *Conectar un frontend* en el README.
+**En producción pasa lo mismo si el frontend y la API viven en sitios distintos.** Por ejemplo,
+`crazydrinks-ui.netlify.app` y `api-drinks-35rb.onrender.com`: `netlify.app` y `onrender.com` son
+sitios distintos para el navegador, así que la cookie sería de terceros. Safari y Firefox la
+bloquean, y Chrome la restringe. La sesión se perdería al volver de Wompi.
+
+**Solución en producción:** el hosting del frontend hace de **proxy** de `/v1/*` hacia la API. El
+navegador solo habla con `https://crazydrinks-ui.netlify.app`, así que la cookie queda en el mismo
+sitio:
+
+```
+Navegador → https://crazydrinks-ui.netlify.app/v1/auth/refresh
+            (Netlify lo reenvía en su servidor)
+          → https://api-drinks-35rb.onrender.com/v1/auth/refresh
+```
+
+Al volver de Wompi, el recorrido completo es:
+
+1. Wompi redirige a `https://crazydrinks-ui.netlify.app/pago/resultado?id=<transacción>&env=test`.
+   Es una navegación completa: el access token que estaba en memoria se pierde.
+2. La app carga y llama a `POST /v1/auth/refresh` en su propio origen. La cookie `refresh_token`
+   viaja porque es del mismo sitio, y la sesión se recupera.
+3. La app llama a `POST /v1/me/payments/verify` con el `id` y muestra el resultado.
+
+Configuración de la API en ese caso:
+
+| Variable | Valor |
+| -------- | ----- |
+| `CORS_ORIGINS` | `https://crazydrinks-ui.netlify.app` |
+| `REFRESH_COOKIE_SAMESITE` | `lax` |
+| `REFRESH_COOKIE_SECURE` | `true` |
+| `TRUST_PROXY` | `true` |
+| `PAYMENTS_REDIRECT_URL` | `https://crazydrinks-ui.netlify.app/pago/resultado` |
+
+La **URL de Eventos** de Wompi no pasa por el proxy: apunta directo a la API
+(`https://api-drinks-35rb.onrender.com/v1/webhooks/wompi`). Es una llamada entre servidores, sin
+navegador ni cookies. El proxy está en el repositorio del frontend: `netlify.toml` y
+`docs/despliegue.md`.
+
+Probado el 2026-09-25 contra la API en Render:
+- El login con `Origin: https://crazydrinks-ui.netlify.app` recibe la cookie
+  (`HttpOnly; Secure; SameSite=Lax; Path=/v1/auth`).
+- El refresh desde ese origen responde `200`, y desde cualquier otro, `401 ORIGIN_NOT_ALLOWED`.
+- Un evento con firma inválida en la URL de Eventos responde `401 INVALID_WEBHOOK_SIGNATURE`.
 
 ## Datos de prueba
 
