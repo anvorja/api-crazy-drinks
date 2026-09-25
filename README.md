@@ -54,8 +54,15 @@ pnpm build && pnpm start:prod
 
 Toda la configuración sale de variables de entorno; no hay valores escritos en el código.
 `src/shared/infrastructure/config/env.ts` las valida con zod al arrancar. Si falta alguna o es
-inválida, la app no arranca y lista cada problema. `.env.example` documenta todas las variables.
-El `.env` real está en `.gitignore`.
+inválida, la app no arranca y lista cada problema.
+
+| Archivo | Para qué | ¿Se sube? |
+| ------- | -------- | --------- |
+| `.env.example` | Plantilla con todas las variables comentadas, sin secretos | Sí |
+| `.env` | Valores de tu máquina. La API lo lee al arrancar | **No** (`.gitignore`) |
+| `.env.production` | Valores de producción, para cargarlos en Render con _Add from .env_. La API no lo lee | **No** (`.gitignore`) |
+
+`.gitignore` y `.dockerignore` excluyen cualquier `.env*` salvo `.env.example`.
 
 | Grupo           | Variables |
 | --------------- | --------- |
@@ -386,7 +393,11 @@ docker compose --profile mail up -d   # además Mailpit para ver los correos: ht
 - **Base de datos:** un **PostgreSQL gestionado**, con backups automáticos y restauración a un
   punto en el tiempo.
 - **Configuración:** todas las variables como **secretos de la plataforma**; nunca un `.env` dentro
-  de la imagen.
+  de la imagen. En Render se cargan desde `.env.production` (local, sin subir) con _Environment →
+  Add from .env_; `PORT` no va porque la plataforma lo define.
+- **Base de datos externa con SSL** (Railway, Neon…): agrega `PGSSLMODE=require`, o `no-verify` si
+  el certificado es autofirmado. El driver `pg` lo lee del entorno. Dentro de la red privada de
+  Render (host interno `dpg-…-a`) no hace falta.
 - **Migraciones:** `MIGRATE_ON_START=true` las aplica al arrancar. Con varias réplicas es seguro,
   porque un *advisory lock* de Postgres hace que migre una y las demás esperen. La otra opción es
   un paso previo al despliegue: `node dist/shared/infrastructure/database/migrate.js`.
