@@ -5,6 +5,65 @@ Todos los cambios relevantes de api-drinks. Formato basado en
 [semántico](https://semver.org/lang/es/): la versión de la aplicación es independiente de la
 versión del contrato HTTP (`/v1`).
 
+## [5.0.0] - 2026-09-25
+
+La API queda autónoma para la evaluación académica. El catálogo, las imágenes y las cuentas demo
+viajan con las migraciones, así que cualquier base nueva (local o Railway) queda lista con
+`pnpm db:migrate`, sin llamar a TheCocktailDB ni pagar su clave Premium.
+
+### ⚠️ Cambios incompatibles con 4.0.0
+
+- **Configuración:** la variable **`CATALOG_SOURCE`** es nueva y obligatoria. Con `snapshot` (el
+  valor de `.env.example`) la API nunca llama a TheCocktailDB. Las variables `COCKTAILDB_*` y
+  `CATALOG_TTL_MS` solo se piden con `CATALOG_SOURCE=cocktaildb`.
+- **Readiness:** en `GET /health/ready`, `checks.theCocktailDb` solo aparece con
+  `CATALOG_SOURCE=cocktaildb`.
+- **Sincronización:** `POST /v1/admin/catalog/sync` responde `409 CATALOG_SOURCE_DISABLED` con el
+  catálogo congelado.
+- **Pagos:** con `PAYMENTS_PROVIDER=wompi`, la API no arranca si `PAYMENTS_REDIRECT_URL` apunta a
+  `localhost`, porque el firewall de Wompi bloquea ese checkout con un `403`. En local se usa
+  `http://lvh.me:<puerto>/…`.
+- **Textos del ADN:** las personalidades cambian de texto (ver *Cambiado*). Los clientes que las
+  comparen como cadena deben actualizarse.
+
+### Añadido
+
+- **Catálogo congelado:** las 443 bebidas tomadas de TheCocktailDB quedan en la migración
+  `0011_seed_drinks_catalog.sql`. `GET /v1/admin/catalog` informa `mode` (`snapshot` o `synced`).
+- **Imágenes en Cloudinary:** las fotos de bebidas (443) e ingredientes (299) se copiaron a
+  Cloudinary (`cocktailDB/`) con `scripts/upload-images-cloudinary.mjs`, y la migración
+  `0012_images_cloudinary.sql` apunta el catálogo a ellas. Los tamaños `small/medium/large` salen
+  de transformaciones de Cloudinary, en WebP o AVIF según el navegador.
+- **Cuentas demo:** la migración `0013_seed_demo_users.sql` crea 7 cuentas con datos sintéticos:
+  una por rol, un menor de edad y la de Andrés Borja. La premium trae historial, ADN y Cocktle, y
+  el dueño de bar trae bar, inventario y plan Pro. Ver README, *Cuentas demo*.
+- **Guía de pagos:** `docs/pagos-wompi.md` documenta el flujo de Wompi pantalla por pantalla, cómo
+  generar checkouts de prueba, los datos de prueba, los problemas comunes y el registro de pruebas
+  en sandbox (PSE y tarjetas aprobada y rechazada).
+- **`scripts/wompi-sandbox.sh`:** genera checkouts, verifica pagos y muestra el plan y el historial
+  de una cuenta.
+- **Imagen de cada versión:** al etiquetar un release, el workflow `release-image.yml` publica la
+  imagen ya probada con `X.Y.Z`, `X.Y`, `X` y `latest`, sin reconstruirla. Si existe el secreto
+  `RENDER_DEPLOY_HOOK_URL`, también dispara el despliegue en Render.
+
+### Cambiado
+
+- **ADN con lenguaje neutro:** las personalidades ya no asumen el género de la persona. El adjetivo
+  concuerda con un sustantivo (paladar, espíritu, carácter, mente, corazón): "El ácido rebelde con
+  alma frutal" ahora es "Espíritu ácido y rebelde con alma frutal". Los moods también reconocen las
+  formas femeninas ("aventurera", "relajada", "romántica"…).
+- **Autocompletado:** la foto de un ingrediente sale del catálogo, no de una URL armada con la
+  configuración.
+- **Qué se cobra:** los datos de las bebidas son gratis y abiertos. Los planes pagos cubren solo
+  funciones propias (bares, inventario, carta con márgenes y API keys de bares).
+- **Documentación:** el README explica el flujo de release y hotfix y los tags de la imagen.
+
+### Verificado
+
+- **Wompi sandbox:** un pago PSE y otro con tarjeta aprobaron y activaron el plan Pro. Una tarjeta
+  rechazada no cambió nada, verificar dos veces no extendió el periodo, y otro usuario no pudo
+  reclamar una transacción ajena (`403`).
+
 ## [4.0.0] - 2026-09-24
 
 Primer release a producción desde `develop`.
@@ -75,5 +134,6 @@ Versión inicial: catálogo sobre TheCocktailDB (búsqueda, detalle, coctel del 
 gemelos), despensa inteligente, moods, autenticación con roles y verificación de edad, planes
 freemium con API keys, carta inteligente para bares y documentación OpenAPI.
 
-[4.0.0]: https://github.com/anvorja/api-crazy-drinks/compare/8e3d78c...release/4.0.0
+[5.0.0]: https://github.com/anvorja/api-crazy-drinks/compare/v4.0.0...v5.0.0
+[4.0.0]: https://github.com/anvorja/api-crazy-drinks/compare/8e3d78c...v4.0.0
 [3.0.0]: https://github.com/anvorja/api-crazy-drinks/commit/8e3d78c

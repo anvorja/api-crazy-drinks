@@ -48,7 +48,7 @@ export class GetRandomDrink {
     if (alcoholic && !visibility.includeAlcoholic)
       throw new ForbiddenError(AGE_RESTRICTED_MESSAGE, 'AGE_RESTRICTED');
 
-    // Unfiltered requests go upstream for the widest variety.
+    // Unfiltered requests go upstream (when there is one) for the widest variety.
     if (alcoholic === undefined && visibility.includeAlcoholic) {
       const drink = await this.catalog.random();
       if (drink) return drink;

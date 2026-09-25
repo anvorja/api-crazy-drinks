@@ -5,7 +5,7 @@ import {
   glassEs,
   ingredientEs,
 } from '../../../domain/translations.js';
-import { drinkImageSizes } from '../../cocktaildb/images.js';
+import { drinkImageSizes } from './image-sizes.js';
 import { FLAVOR_DIMENSIONS, FlavorDna, Twin } from '../../../domain/flavor.js';
 
 export const ingredientResponseSchema = z
@@ -85,7 +85,7 @@ export const flavorDnaResponseSchema = z
       .meta({ description: 'Dimensions scoring 60 or more' }),
     personality: z
       .string()
-      .meta({ example: 'El que no perdona con alma cítrica' }),
+      .meta({ example: 'Carácter que no perdona con alma cítrica' }),
     strength: z.enum(['zero', 'light', 'medium', 'strong']),
     complexity: z.number().int().meta({ description: 'Number of ingredients' }),
   })

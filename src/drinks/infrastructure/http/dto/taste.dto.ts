@@ -22,7 +22,7 @@ export const tasteProfileSchema = z
     dominant: z.array(flavorDimension),
     personality: z
       .string()
-      .meta({ example: 'El ácido rebelde con alma frutal' }),
+      .meta({ example: 'Espíritu ácido y rebelde con alma frutal' }),
     preferredStrength: z.enum(['zero', 'light', 'medium', 'strong']),
     favoriteIngredients: z.array(
       z.object({ ingredient: z.string(), count: z.number().int() }),

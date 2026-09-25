@@ -22,11 +22,16 @@ ADN de sabor, gemelos y carta inteligente para bares.
 **Autenticación**
 - Apps propias: \`Authorization: Bearer <accessToken>\` (ver /v1/auth/login). En navegador, el refresh token
   viaja en una cookie httpOnly: haz las peticiones de /v1/auth con credentials: 'include'.
-- Integraciones de terceros: \`X-API-Key: <key>\` (ver /v1/me/api-keys). Cuentan contra la cuota diaria del plan
-  y responden con los headers \`X-RateLimit-Limit\`, \`X-RateLimit-Remaining\` y \`X-RateLimit-Reset\`.
+- Integraciones de bares (carta, inventario): \`X-API-Key: <key>\` (ver /v1/me/api-keys). Cuentan contra la cuota
+  diaria del plan y responden con los headers \`X-RateLimit-Limit\`, \`X-RateLimit-Remaining\` y \`X-RateLimit-Reset\`.
 
-**Fuente de datos**: recetas e imágenes de [TheCocktailDB](https://www.thecocktaildb.com/). Todo frontend que
-muestre bebidas debe mostrar "Datos e imágenes: TheCocktailDB" con un enlace a su sitio (condición de su uso).
+**Fuente de datos**: recetas e imágenes de [TheCocktailDB](https://www.thecocktaildb.com/), congeladas en una
+migración (el catálogo no llama a su API). Todo frontend que muestre bebidas debe mostrar "Datos e imágenes:
+TheCocktailDB" con un enlace a su sitio (condición de su uso).
+
+**Qué se cobra**: los datos de las bebidas son gratis y abiertos, sin cuenta ni API key. Los planes pagos (Wompi)
+cubren solo funciones propias de api-drinks: bares, inventario, carta con costos y márgenes, y API keys para
+integrar bares.
 
 **Verificación de edad**: las bebidas con alcohol solo se muestran a usuarios autenticados mayores de 18 años.
 `;

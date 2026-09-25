@@ -1,4 +1,5 @@
 import { Logger } from '@nestjs/common';
+import type { Env } from '../../../shared/infrastructure/config/env.js';
 import { UnavailableError } from '../../../shared/domain/errors.js';
 import { DrinkSource } from '../../application/ports/drink-source.port.js';
 import { Drink } from '../../domain/drink.js';
@@ -94,4 +95,18 @@ export class CocktailDbSource implements DrinkSource {
       );
     }
   }
+}
+
+/** The adapter when CATALOG_SOURCE=cocktaildb; null for the local snapshot. */
+export function cocktailDbSourceFrom(env: Env): CocktailDbSource | null {
+  if (env.CATALOG_SOURCE !== 'cocktaildb') return null;
+  // The env schema guarantees every COCKTAILDB_* value in this mode.
+  return new CocktailDbSource({
+    baseUrl: env.COCKTAILDB_BASE_URL!,
+    apiKey: env.COCKTAILDB_API_KEY!,
+    timeoutMs: env.COCKTAILDB_TIMEOUT_MS!,
+    crawlConcurrency: env.COCKTAILDB_CRAWL_CONCURRENCY!,
+    retries: env.COCKTAILDB_RETRIES!,
+    imagesBaseUrl: env.COCKTAILDB_IMAGES_BASE_URL!,
+  });
 }

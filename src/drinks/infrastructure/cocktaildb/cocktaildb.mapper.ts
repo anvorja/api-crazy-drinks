@@ -1,6 +1,6 @@
 import { Drink } from '../../domain/drink.js';
 import { CocktailDbDrinkDto } from './cocktaildb.dto.js';
-import { ingredientImage } from './images.js';
+import { ingredientImage } from './ingredient-image.js';
 
 const MAX_INGREDIENTS = 15;
 

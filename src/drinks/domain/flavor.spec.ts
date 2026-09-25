@@ -8,7 +8,14 @@ import {
   drink,
 } from '../../../test/support/drinks.js';
 import { ingredientKeys } from './drink.js';
-import { findTwins, flavorDna, flavorVector, jaccard } from './flavor.js';
+import {
+  FLAVOR_DIMENSIONS,
+  describePersonality,
+  findTwins,
+  flavorDna,
+  flavorVector,
+  jaccard,
+} from './flavor.js';
 
 describe('flavor', () => {
   it('builds a 0-100 profile led by the dominant trait', () => {
@@ -27,8 +34,16 @@ describe('flavor', () => {
     const dna = flavorDna(CHOCOLATE_MILK);
     expect(dna.dominant).toEqual(['sweet', 'creamy']);
     expect(dna.profile.fizzy).toBe(0); // "chocolate" contains "cola" but isn't fizzy
-    expect(dna.personality).toBe('El goloso con alma cremosa');
+    expect(dna.personality).toBe('Paladar goloso con alma cremosa');
     expect(dna.complexity).toBe(2);
+  });
+
+  it("never genders the person: no personality starts with 'El' or 'La'", () => {
+    const all = FLAVOR_DIMENSIONS.flatMap((first) =>
+      FLAVOR_DIMENSIONS.map((second) => describePersonality([first, second])),
+    );
+    expect(all.filter((p) => /^(El|La) /.test(p))).toEqual([]);
+    expect(describePersonality([])).toBe('Paladar misterioso');
   });
 
   it('matches whole words: ginger is spicy, not gin', () => {

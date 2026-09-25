@@ -3,7 +3,7 @@ import { Drink } from './drink.js';
 
 export type Suggestion =
   | { kind: 'drink'; value: string; drink: Drink; score: number }
-  | { kind: 'ingredient'; value: string; score: number };
+  | { kind: 'ingredient'; value: string; image: string | null; score: number };
 
 const MIN_SCORE = 0.3;
 
@@ -47,17 +47,21 @@ export function suggest(
     score: matchScore(query, drink.name),
   }));
 
-  const ingredients = new Map<string, string>();
+  // First spelling and first picture seen for each ingredient.
+  const ingredients = new Map<string, { name: string; image: string | null }>();
   for (const drink of drinks) {
-    for (const { name } of drink.ingredients) {
+    for (const { name, image } of drink.ingredients) {
       const key = normalizeText(name);
-      if (!ingredients.has(key)) ingredients.set(key, name);
+      const seen = ingredients.get(key);
+      if (!seen) ingredients.set(key, { name, image: image ?? null });
+      else if (!seen.image && image) seen.image = image;
     }
   }
   const ingredientHits: Suggestion[] = [...ingredients.values()].map(
-    (name) => ({
+    ({ name, image }) => ({
       kind: 'ingredient',
       value: name,
+      image,
       score: matchScore(query, name),
     }),
   );

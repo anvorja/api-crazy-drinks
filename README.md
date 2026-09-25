@@ -1,6 +1,8 @@
 # api-drinks
 
-API de bebidas y cocteles construida con NestJS sobre [TheCocktailDB](https://www.thecocktaildb.com).
+API de bebidas y cocteles construida con NestJS. Su catálogo de 443 bebidas viene de
+[TheCocktailDB](https://www.thecocktaildb.com) y está congelado en una migración, así que la API no
+depende de su servicio (ver *Datos de TheCocktailDB*).
 No es solo un buscador de recetas:
 - te dice qué puedes preparar con lo que tienes en la cocina, y qué comprar para preparar más;
 - qué tomar según tu estado de ánimo;
@@ -58,7 +60,8 @@ El `.env` real está en `.gitignore`.
 | Grupo           | Variables |
 | --------------- | --------- |
 | Servidor        | `NODE_ENV`, `PORT`, `TRUST_PROXY` (detrás de un proxy, para ver la IP real), `OPENAPI_ENABLED`, `CACHE_MAX_AGE_SECONDS` |
-| TheCocktailDB   | `COCKTAILDB_BASE_URL`, `COCKTAILDB_API_KEY`, `COCKTAILDB_IMAGES_BASE_URL`, `COCKTAILDB_TIMEOUT_MS`, `COCKTAILDB_RETRIES`, `COCKTAILDB_CRAWL_CONCURRENCY`, `CATALOG_TTL_MS`, `CATALOG_CACHE_CHECK_SECONDS` |
+| Catálogo        | `CATALOG_SOURCE` (`snapshot` o `cocktaildb`), `CATALOG_CACHE_CHECK_SECONDS`; solo con `cocktaildb`: `COCKTAILDB_BASE_URL`, `COCKTAILDB_API_KEY`, `COCKTAILDB_IMAGES_BASE_URL`, `COCKTAILDB_TIMEOUT_MS`, `COCKTAILDB_RETRIES`, `COCKTAILDB_CRAWL_CONCURRENCY`, `CATALOG_TTL_MS` |
+| Cloudinary      | `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`, `CLOUDINARY_FOLDER`: solo para el script de imágenes, no para la API |
 | PostgreSQL      | `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_POOL_MAX`, `MIGRATE_ON_START` |
 | Autenticación   | `JWT_SECRET` (mín. 32 caracteres), `JWT_ACCESS_TTL_SECONDS`, `REFRESH_TOKEN_TTL_DAYS` |
 | Observabilidad  | `LOG_FORMAT` (`json` o `pretty`), `LOG_LEVEL`, `METRICS_ENABLED`, `METRICS_TOKEN`, `SENTRY_DSN` |
@@ -84,10 +87,35 @@ pnpm db:studio                     # explorador visual
 
 | Contexto   | Tablas |
 | ---------- | ------ |
-| `drinks`   | `drinks`, `catalog_syncs`, `user_pantries`, `favorites`, `drink_reactions`, `taste_shares`, `cocktle_games` |
-| `identity` | `users`, `refresh_tokens`, `login_failures`, `api_keys`, `api_usage`, `password_resets` |
+| `drinks`   | `drinks` (sembrada por `0011_seed_drinks_catalog.sql`; imágenes en Cloudinary por `0012_images_cloudinary.sql`), `catalog_syncs`, `user_pantries`, `favorites`, `drink_reactions`, `taste_shares`, `cocktle_games` |
+| `identity` | `users` (cuentas demo en `0013_seed_demo_users.sql`), `refresh_tokens`, `login_failures`, `api_keys`, `api_usage`, `password_resets` |
 | `billing`  | `plans` (sembrada por `0004_seed_plans.sql`), `subscriptions`, `payments` |
 | `venues`   | `venues`, `venue_inventory` |
+
+### Cuentas demo
+
+La migración `drizzle/0013_seed_demo_users.sql` crea cuentas de prueba con datos sintéticos, para la
+evaluación académica. Viajan con las migraciones: cualquier base nueva (local, Railway…) las tiene
+tras `pnpm db:migrate` o con `MIGRATE_ON_START=true`, sin poblar nada a mano.
+
+Contraseña de todas: **`ApiDrinks2026`**, salvo la de Andrés Borja (`##AndresB1`).
+
+| Correo | Rol | Edad | Qué trae |
+| ------ | --- | ---- | -------- |
+| `admin.demo@api-drinks.local` | `admin` | adulto | Todo: roles, suscripciones, cualquier bar |
+| `premium@api-drinks.local` | `premium` | adulto | Laura: 6 favoritos, 9 swipes, despensa, ADN compartido en `/v1/taste/laura-demo-adn` y 5 partidas de Cocktle. Su ADN ("Espíritu ácido y rebelde con alma frutal") y sus recomendaciones salen de inmediato |
+| `bar@api-drinks.local` | `venue_owner` | adulto | Carlos: bar "La Barra Demo" (Cali, COP) con 18 insumos, plan **Pro** activo por un año desde la migración y su pago aprobado. La carta muestra costos, precios y márgenes |
+| `bartender@api-drinks.local` | `bartender` | adulto | Sin datos |
+| `basico@api-drinks.local` | `user` | adulto | Recién registrado: sin ADN todavía |
+| `menor@api-drinks.local` | `user` | 16 años | No ve bebidas con alcohol (`403 AGE_RESTRICTED`) |
+| `andres.vorja.vorja@gmail.com` | `user` | adulto | Sin datos |
+
+- **Tokens:** los JWT no se guardan: se obtienen con `POST /v1/auth/login`. En la base solo quedan
+  los usuarios con su contraseña cifrada con scrypt.
+- **Sin pisar nada:** si un correo ya existe, esa cuenta se omite, y sus datos también.
+- **Cuidado:** las contraseñas están en el repositorio, que es público. Sirven para una demo, no
+  para una instalación con usuarios reales. Si la API queda pública, cambia la contraseña de
+  cualquier cuenta que te importe con `PUT /v1/me/password`.
 
 ## Flujo de trabajo: Gitflow
 
@@ -96,13 +124,17 @@ pnpm db:studio                     # explorador visual
 | `main`      | —         | —                           | —                | Lo que está en producción. Cada merge es una versión. |
 | `develop`   | `main`    | —                           | —                | Integración de lo próximo a publicar. |
 | `feature/*` | `develop` | `develop`                   | **Squash**       | Una funcionalidad o cambio: `feature/carta-bares`. |
-| `release/*` | `develop` | `main` y luego `develop`    | **Merge** a `main`; **Squash** a `develop` | Preparar una versión: `release/3.1.0`. Solo ajustes finales. |
+| `release/*` | `develop` | `main` y luego `develop`    | **Merge** a `main`; **Squash** a `develop` | Preparar una versión: `release/4.1.0`. Solo ajustes finales. |
 | `hotfix/*`  | `main`    | `main` y luego `develop`    | **Merge** a `main`; **Squash** a `develop` | Corrección urgente en producción: `hotfix/login-429`. |
 
 - **Nadie hace push directo** a `main` ni a `develop`: todo entra por pull request.
 - **En `develop` se usa squash:** cada feature queda como un único commit con el título del PR.
 - **En `main` se usa merge commit:** cada release o hotfix queda visible como una unidad en la historia.
-- **Tags:** tras mergear un `release/*` o un `hotfix/*` a `main`, se etiqueta la versión (`git tag v3.1.0`).
+- **Tags:** tras mergear un `release/*` o un `hotfix/*` a `main`, se etiqueta la versión
+  (`git tag -a v4.1.0`) sobre el merge commit.
+- **Versiones:** siguen [versionado semántico](https://semver.org/lang/es/). Se sube la mayor si
+  hay cambios incompatibles, la menor si hay funcionalidades nuevas y el parche si solo hay
+  arreglos. Cada release se documenta en `CHANGELOG.md`.
 
 ```bash
 # feature
@@ -112,11 +144,68 @@ git switch -c feature/mi-cambio
 git push -u origin feature/mi-cambio          # abrir PR hacia develop → Squash and merge
 
 # release
-git switch -c release/3.1.0 develop           # PR hacia main (Merge) y luego hacia develop (Squash)
+git switch -c release/4.1.0 develop           # PR hacia main (Merge) y luego hacia develop (Squash)
 
 # hotfix
 git switch -c hotfix/descripcion main         # PR hacia main (Merge) y luego hacia develop (Squash)
 ```
+
+### Releases y hotfixes: por qué `release → main` y no `develop → main`
+
+La clave es **qué contiene `develop` en el momento de publicar**. `develop` nunca se detiene:
+mientras se prepara un release, se siguen mergeando features. La rama `release/*` existe para
+**congelar** una foto de `develop`. Desde que se crea, lo nuevo entra a `develop` pero no al release.
+
+```
+develop:  A ── B ── C ─────── D ── E        ← D y E llegan después (a medias, sin probar)
+                     \
+release/4.1.0:        C ── fix              ← congelado en C; solo arreglos de estabilización
+                             \
+main:                         ● Release 4.1.0   (C + fix, exactamente lo probado)
+```
+
+- **`release → main` (correcto):** a producción llega exactamente lo congelado y probado (C más sus
+  arreglos). D y E se quedan en `develop` para el próximo release.
+- **`release → develop → main` (incorrecto):** el release se mezclaría con D y E, y el PR
+  `develop → main` llevaría a producción funcionalidades que nadie revisó para esta versión.
+- **Después, `release → develop`:** los arreglos hechos en la rama de release (el "fix" del
+  diagrama, el cambio de versión, el CHANGELOG) vuelven a `develop`. Si no, el próximo release
+  saldría sin ellos y el bug reaparecería.
+- **El orden entre los dos PR** no importa técnicamente, porque ambos salen de la misma rama. Va
+  `main` primero porque publicar es el objetivo: un conflicto en el PR a `develop` no debe retrasar
+  el release.
+- **`hotfix/*`** sigue la misma lógica: sale de `main`, entra a `main` (producción) y vuelve a
+  `develop` para que el arreglo no se pierda en la próxima versión.
+
+**Pasos para publicar un release:**
+
+1. `git switch -c release/X.Y.Z develop`. Sube la versión (`package.json` y `APP_VERSION`), escribe
+   la sección en `CHANGELOG.md` y corre `pnpm openapi:generate`, porque la versión va en el
+   contrato. Haz el commit y el push.
+2. **Sincroniza `main` en la rama del release:**
+   ```bash
+   git fetch && git merge -s ours origin/main -m "Merge main en release/X.Y.Z" && git push
+   ```
+   El release anterior volvió a `develop` con **Squash**, así que para git `develop` no contiene
+   el merge commit de `main`, aunque sí su contenido. Sin este paso, el PR a `main` muestra
+   conflictos en `CHANGELOG.md`, `package.json`, `APP_VERSION` y `openapi.json`. `-s ours` registra
+   `main` como ya integrado sin tocar ningún archivo del release. Antes, comprueba que `main` no
+   tenga nada propio: `git diff origin/main <commit del squash anterior en develop>` debe salir
+   vacío. Si hubo un hotfix que aún no volvió a `develop`, intégralo primero.
+3. **Abre los dos PR antes de mergear ninguno:** `release/X.Y.Z → main` con el título
+   `Release X.Y.Z`, y `release/X.Y.Z → develop` con el título `chore: release X.Y.Z`. El borrado
+   automático de ramas podría eliminar la rama al mergear el primero; si pasa, el PR mergeado
+   tiene el botón *Restore branch*.
+4. Mergea el PR a `main` con **Merge commit** y luego el de `develop` con **Squash**.
+5. Etiqueta el merge commit de `main` y súbelo:
+   ```bash
+   git fetch && git tag -a vX.Y.Z origin/main -m "api-drinks X.Y.Z" && git push origin vX.Y.Z
+   ```
+   Subir el tag **publica la versión**: el workflow *Imagen de la versión* toma la imagen que el
+   CI construyó y probó para ese commit y le agrega `X.Y.Z`, `X.Y`, `X` y `latest`. Si hay deploy
+   hook, además avisa a Render (ver *CI/CD*).
+6. Opcional: en GitHub, *Releases → Draft a new release*, elige el tag y pega la sección del
+   CHANGELOG.
 
 ### Actualizar una rama: rebase
 
@@ -254,8 +343,27 @@ Los tres corren en paralelo.
   Postgres efímero, `JWT_SECRET`). No hay secretos escritos en el repositorio y no hace falta
   configurar *secrets* en GitHub: la publicación usa el `GITHUB_TOKEN` automático.
 - **Tags de la imagen** `ghcr.io/<owner>/<repo>`:
-  - push a `main`: `latest`, `main` y `sha-<commit>`;
-  - push a `develop`: `develop` y `sha-<commit>`.
+
+  | Tag | Cuándo se actualiza | Para |
+  | --- | ------------------- | ---- |
+  | `latest` | Al publicar una versión (tag `vX.Y.Z`) | **Producción** (Render apunta aquí) |
+  | `4.0.0`, `4.0`, `4` | Al publicar esa versión | Fijar una versión o hacer rollback |
+  | `main` | Cada push a `main` | — |
+  | `develop` | Cada push a `develop` | Staging |
+  | `sha-<commit>` | Cada push | Una imagen exacta |
+
+- **Imagen de la versión** (`.github/workflows/release-image.yml`):
+  - **Qué hace:** al subir un tag `vX.Y.Z` **no reconstruye** la imagen. Toma la que el CI
+    construyó y probó para ese commit (`sha-<commit>`) y le agrega `X.Y.Z`, `X.Y`, `X` y `latest`.
+    Por eso **`latest` y la versión son la misma imagen, con el mismo *digest***.
+  - **Qué valida:** que el tag tenga formato `vX.Y.Z`, que coincida con la versión de
+    `package.json` y que el commit esté en `main`. Si algo no cuadra, falla antes de publicar.
+  - **Lanzarlo a mano:** también se ejecuta desde *Actions → Imagen de la versión → Run workflow*,
+    indicando el tag. Sirve para versiones etiquetadas antes de que existiera este workflow, o para
+    reintentar.
+  - **Render:** si el repo tiene el secreto `RENDER_DEPLOY_HOOK_URL` (*Settings → Secrets and
+    variables → Actions*), al terminar le pide a Render que despliegue. Render debe tener configurada
+    la imagen `ghcr.io/<owner>/<repo>:latest`. No hay que tocar nada al sacar una versión nueva.
 - **Despliegue:** el CD termina en la imagen publicada. Desplegarla en un servidor o una nube es el
   siguiente paso cuando se defina dónde va a vivir la API.
 
@@ -292,7 +400,7 @@ docker compose --profile mail up -d   # además Mailpit para ver los correos: ht
 | Ambiente | Rama e imagen | Base de datos | Llaves |
 | -------- | ------------- | ------------- | ------ |
 | staging | `develop` | propia | Wompi **sandbox**; correo a Mailpit o a un proveedor de pruebas |
-| producción | `main` (`latest`) | propia, con backups | Wompi **producción**, SMTP real, clave Premium de TheCocktailDB |
+| producción | `main` (`latest`) | propia, con backups | Wompi **producción**, SMTP real |
 
 ### Checklist de producción
 
@@ -309,7 +417,7 @@ docker compose --profile mail up -d   # además Mailpit para ver los correos: ht
 | `JWT_SECRET` | aleatorio: `openssl rand -base64 48` |
 | `MAIL_TRANSPORT` | `smtp` con un proveedor real |
 | `PAYMENTS_PROVIDER` | `wompi` con las llaves de **producción** y `WOMPI_API_URL=https://production.wompi.co/v1` |
-| `COCKTAILDB_API_KEY` | la clave **Premium** (ver *Datos de TheCocktailDB*) |
+| `CATALOG_SOURCE` | `snapshot` (con `cocktaildb` haría falta la clave Premium; ver *Datos de TheCocktailDB*) |
 | `SENTRY_DSN` | recomendado |
 
 ### Backups
@@ -328,21 +436,42 @@ scripts/restore-db.sh backups/<archivo>.dump   # DESTRUCTIVO: pide escribir el n
 
 ## Datos de TheCocktailDB
 
-Las recetas e imágenes vienen de [TheCocktailDB](https://www.thecocktaildb.com/). Sus términos
-(revisados en septiembre de 2026) dicen:
+Las recetas e imágenes vienen de [TheCocktailDB](https://www.thecocktaildb.com/). api-drinks es un
+proyecto **académico**, así que el catálogo se tomó una sola vez con la clave de pruebas `1`
+(permitida para uso educativo) y quedó **congelado** en la migración
+`drizzle/0011_seed_drinks_catalog.sql`:
 
-- **Clave:** la clave de pruebas `1` es solo para desarrollo o uso educativo. Para publicar hace
-  falta la **clave Premium**, que según su [página de la API](https://www.thecocktaildb.com/api.php)
-  tiene un pago único de unos USD 10. Además quita el tope de 100 resultados por consulta y permite
-  filtrar por varios ingredientes.
+- **Qué contiene:** las 443 bebidas con sus ingredientes, medidas, instrucciones en inglés y español,
+  categorías, vasos y etiquetas, tomadas el 2026-09-25. `pnpm db:migrate` crea las tablas y las
+  siembra; no hace falta nada más para poblar la base.
+- **Sin dependencia en tiempo de ejecución:** con `CATALOG_SOURCE=snapshot` (el valor por defecto de
+  `.env.example`) la API nunca llama a TheCocktailDB. La búsqueda, el detalle, el aleatorio, el
+  coctel del día y todo el análisis salen de Postgres, y `/health/ready` no revisa TheCocktailDB.
+  `POST /v1/admin/catalog/sync` responde `409 CATALOG_SOURCE_DISABLED`.
+- **Imágenes en Cloudinary:** las 443 fotos de bebidas y las 299 de ingredientes se copiaron a
+  Cloudinary (carpeta `cocktailDB/`, subcarpetas `drinks/` e `ingredients/`) con
+  `scripts/upload-images-cloudinary.mjs`. La migración `drizzle/0012_images_cloudinary.sql`
+  apunta el catálogo a ellas. Así nada se carga desde el sitio de TheCocktailDB.
+  - Se guarda el original (700 px) y la API arma `small`, `medium` y `large` (200, 350 y 500 px)
+    con transformaciones en la URL (`c_fill,w_200,h_200,f_auto,q_auto`). Cloudinary elige WebP o
+    AVIF según el navegador: la miniatura pesa unos 4 KB en lugar de 10.
+  - Los ingredientes se muestran a 100 px, igual que antes.
+  - El script usa las variables `CLOUDINARY_*` del `.env` y no hay que volver a ejecutarlo. Si se
+    ejecuta de nuevo, conserva lo ya subido y regenera la misma migración.
+- **Sincronizar de nuevo (opcional):** el adaptador `cocktaildb/` sigue ahí, detrás del puerto
+  `DrinkSource`. Con `CATALOG_SOURCE=cocktaildb` y las variables `COCKTAILDB_*`, el catálogo vuelve
+  a sincronizarse. Publicarlo así exigiría la **clave Premium** (pago único de unos USD 10 según su
+  [página de la API](https://www.thecocktaildb.com/api.php)).
+
+Lo que se mantiene en los dos modos:
+
 - **Atribución obligatoria:** hay que citarlos como fuente y enlazar a su sitio. La API lo expone en
   `attribution` (en `GET /`) y en la descripción de OpenAPI. **El frontend debe mostrar** "Datos e
   imágenes: TheCocktailDB" con el enlace.
-- **"You cannot resell our API":** no se puede revender su API sin permiso. **Riesgo para el modelo
-  de negocio:** los planes que venden *API keys* para consultar bebidas (la cuota de
-  `/me/api-keys`) podrían interpretarse como reventa. Las funciones con valor propio (carta de
-  bares, ADN, swipe, Cocktle) son más defendibles. **Antes de cobrar por API keys, pide permiso
-  por escrito a TheCocktailDB** o limita esas keys a las funciones propias.
+- **"You cannot resell our API":** por eso los datos de las bebidas son **gratis y abiertos**: no
+  piden cuenta ni API key, y ningún plan cobra por ellos. Lo que se cobra con Wompi son funciones
+  propias de api-drinks: bares, inventario, carta con costos y márgenes, y las API keys, que solo
+  dan acceso a los endpoints de bares (`/v1/venues`), nunca al catálogo (ver *Planes*).
 
 Términos completos: <https://www.thecocktaildb.com/terms_of_use.php>
 
@@ -419,7 +548,7 @@ src/<contexto>/
   infrastructure/  Adaptadores:
     http/          controllers, DTOs (esquemas zod de request y response) y guards
     persistence/   Drizzle (Postgres) e in-memory
-    cocktaildb/    cliente de TheCocktailDB (DrinkSource)
+    cocktaildb/    cliente de TheCocktailDB (DrinkSource, opcional: CATALOG_SOURCE=cocktaildb)
     security/      scrypt, JWT (jose), tokens opacos
     *.module.ts    cableado de Nest: construye los casos de uso con factories
 ```
@@ -601,7 +730,7 @@ Es una regla de dominio (`canSeeAlcohol` en `identity/domain/principal.ts`), no 
 | `premium`     | Lo de `user` + recomendaciones personalizadas según su ADN de sabor |
 | `bartender`   | Reservado para las siguientes funcionalidades |
 | `venue_owner` | Registrar bares y usar la carta inteligente (debe ser mayor de edad) |
-| `admin`       | Gestionar roles y suscripciones, resincronizar el catálogo y ver cualquier bar. Sin límites de plan. |
+| `admin`       | Gestionar roles y suscripciones, resincronizar el catálogo (con `CATALOG_SOURCE=cocktaildb`) y ver cualquier bar. Sin límites de plan. |
 
 ### Planes (freemium)
 
@@ -615,6 +744,9 @@ Los valores iniciales son:
 | business | 249.000 | ∞     | ∞                   | sí                  | 10       | 100.000        |
 
 - Quien no tiene una suscripción vigente está en `free`.
+- **Se cobra solo lo propio.** Los planes limitan funciones de api-drinks, nunca el acceso a las
+  bebidas: el catálogo es gratis y no pide cuenta ni key, y las API keys solo sirven para los
+  endpoints de bares (ver *Datos de TheCocktailDB*).
 - Pasar un límite responde `402`.
 - La cuota diaria es **por usuario**, sumando todas sus keys. Cada respuesta lleva
   `X-RateLimit-Limit`, `X-RateLimit-Remaining` y `X-RateLimit-Reset`.
@@ -625,7 +757,8 @@ Los valores iniciales son:
 ### Pagos (Wompi)
 
 [Wompi](https://docs.wompi.co) es de Bancolombia, cobra en COP y tiene un sandbox gratuito con
-tarjetas de prueba. Va detrás del puerto `PaymentGateway`, así que otra pasarela (Mercado Pago,
+tarjetas de prueba. **El flujo completo, pantalla por pantalla, con datos de prueba y problemas
+comunes, está en [docs/pagos-wompi.md](docs/pagos-wompi.md).** Va detrás del puerto `PaymentGateway`, así que otra pasarela (Mercado Pago,
 PayU…) sería otro adaptador.
 
 | Endpoint | Para |
@@ -648,11 +781,24 @@ PayU…) sería otro adaptador.
    las llaves de pruebas: `pub_test_…`, el secreto de integridad `test_integrity_…` y el de eventos
    `test_events_…`.
 2. En `.env`: `PAYMENTS_PROVIDER=wompi`, las tres llaves y `WOMPI_API_URL=https://sandbox.wompi.co/v1`.
+   La llave privada (`prv_test_…`) no se usa.
+   - **`PAYMENTS_REDIRECT_URL` no puede apuntar a `localhost` ni a `127.0.0.1`.** El firewall de
+     Wompi responde `403` en el checkout, y por eso la API no arranca con esa configuración. En local
+     usa `http://lvh.me:5173/…`: `lvh.me` es un dominio público que resuelve a `127.0.0.1`, así que
+     el navegador vuelve igual a tu frontend. Si el frontend se abre en `lvh.me`, agrega
+     `http://lvh.me:5173` a `CORS_ORIGINS`.
 3. Para recibir el webhook en local, expón la API, por ejemplo con
    `cloudflared tunnel --url http://localhost:8090`, y registra `https://…/v1/webhooks/wompi` como
    URL de eventos en Wompi. Sin túnel, `POST /me/payments/verify` confirma el pago igual.
 4. Paga con las tarjetas de prueba de la
-   [documentación de sandbox](https://docs.wompi.co/docs/colombia/datos-de-prueba-en-sandbox/).
+   [documentación de sandbox](https://docs.wompi.co/docs/colombia/datos-de-prueba-en-sandbox/)
+   (`4242 4242 4242 4242` aprobada, `4111 1111 1111 1111` rechazada) o con PSE, eligiendo el
+   resultado del banco simulado.
+5. Sin frontend, copia el `id` de la URL a la que vuelve Wompi y confírmalo con
+   `POST /v1/me/payments/verify`.
+
+Probado en sandbox el 2026-09-25 con PSE y con tarjetas aprobada y rechazada: el detalle está en el
+registro de pruebas de [docs/pagos-wompi.md](docs/pagos-wompi.md).
 
 ### Explorar el catálogo
 
@@ -767,12 +913,16 @@ intento, el frontend usa `GET /drinks/suggest`.
 
 ### Catálogo de bebidas
 
-La clave gratuita de TheCocktailDB no permite filtrar por varios ingredientes. Por eso el catálogo
-completo se sincroniza a Postgres:
-- Rastrea por letra inicial, con reintentos. Si una letra falla, se omite.
-- Se resincroniza cuando pasa `CATALOG_TTL_MS`, en segundo plano.
-- Las búsquedas y consultas por id **guardan lo que encuentran**, así que el catálogo crece con el uso.
-- Si TheCocktailDB se cae, la búsqueda responde con los datos locales.
+El catálogo completo vive en Postgres: filtros por varios ingredientes, despensa, moods, gemelos y
+ADN se calculan sobre él. Depende de `CATALOG_SOURCE`:
+
+- **`snapshot`** (por defecto): las 443 bebidas de la migración `0011`. No cambia ni llama afuera.
+  `GET /v1/admin/catalog` muestra `mode: "snapshot"` y, como `lastSyncedAt`, la fecha de la toma.
+- **`cocktaildb`**: además se sincroniza con TheCocktailDB.
+  - Rastrea por letra inicial, con reintentos. Si una letra falla, se omite.
+  - Se resincroniza cuando pasa `CATALOG_TTL_MS`, en segundo plano.
+  - Las búsquedas y consultas por id **guardan lo que encuentran**.
+  - Si TheCocktailDB se cae, la búsqueda responde con los datos locales.
 
 ## Pruebas
 

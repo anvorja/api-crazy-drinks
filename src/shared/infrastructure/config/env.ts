@@ -24,6 +24,13 @@ const originList = z
       )
       .min(1),
   );
+/** Wompi's firewall rejects checkouts whose redirect points to these hosts (403 from CloudFront). */
+const LOCAL_HOSTS = ['localhost', '127.0.0.1', '[::1]'];
+const isLocalUrl = (url: string | undefined) =>
+  url !== undefined &&
+  URL.canParse(url) &&
+  LOCAL_HOSTS.includes(new URL(url).hostname);
+
 /** Optional variable where an empty value (`NAME=` in a .env file) means "not set". */
 const optional = <T extends z.ZodType>(schema: T) =>
   z.preprocess((v) => (v === '' ? undefined : v), schema.optional());
@@ -76,13 +83,21 @@ const schema = z
     /** max-age of Cache-Control on catalog responses (0 disables caching). */
     CACHE_MAX_AGE_SECONDS: z.coerce.number().int().min(0),
 
-    COCKTAILDB_BASE_URL: z.url(),
-    COCKTAILDB_API_KEY: z.string().min(1),
-    COCKTAILDB_IMAGES_BASE_URL: z.url(),
-    COCKTAILDB_TIMEOUT_MS: z.coerce.number().int().positive(),
-    COCKTAILDB_RETRIES: z.coerce.number().int().min(0).max(5),
-    COCKTAILDB_CRAWL_CONCURRENCY: z.coerce.number().int().min(1).max(20),
-    CATALOG_TTL_MS: z.coerce.number().int().positive(),
+    /**
+     * snapshot: the catalog is the one the migrations seed; TheCocktailDB is never called.
+     * cocktaildb: keeps it in sync with TheCocktailDB (needs COCKTAILDB_* and CATALOG_TTL_MS).
+     */
+    CATALOG_SOURCE: z.enum(['snapshot', 'cocktaildb']),
+    COCKTAILDB_BASE_URL: optional(z.url()),
+    COCKTAILDB_API_KEY: optional(z.string().min(1)),
+    /** Ingredient pictures of the drinks it syncs (the snapshot's are on Cloudinary). */
+    COCKTAILDB_IMAGES_BASE_URL: optional(z.url()),
+    COCKTAILDB_TIMEOUT_MS: optional(z.coerce.number().int().positive()),
+    COCKTAILDB_RETRIES: optional(z.coerce.number().int().min(0).max(5)),
+    COCKTAILDB_CRAWL_CONCURRENCY: optional(
+      z.coerce.number().int().min(1).max(20),
+    ),
+    CATALOG_TTL_MS: optional(z.coerce.number().int().positive()),
     /** How often each instance checks whether another one changed the cached catalog. */
     CATALOG_CACHE_CHECK_SECONDS: z.coerce.number().int().min(0),
     /** Apply pending migrations before starting (safe with several replicas: advisory lock). */
@@ -141,6 +156,21 @@ const schema = z
   })
   .refine(
     (env) =>
+      env.CATALOG_SOURCE !== 'cocktaildb' ||
+      (env.COCKTAILDB_BASE_URL &&
+        env.COCKTAILDB_API_KEY &&
+        env.COCKTAILDB_IMAGES_BASE_URL &&
+        env.COCKTAILDB_TIMEOUT_MS &&
+        env.COCKTAILDB_RETRIES !== undefined &&
+        env.COCKTAILDB_CRAWL_CONCURRENCY &&
+        env.CATALOG_TTL_MS),
+    {
+      message:
+        'CATALOG_SOURCE=cocktaildb requires COCKTAILDB_* and CATALOG_TTL_MS',
+    },
+  )
+  .refine(
+    (env) =>
       env.PAYMENTS_PROVIDER !== 'wompi' ||
       (env.WOMPI_PUBLIC_KEY &&
         env.WOMPI_INTEGRITY_SECRET &&
@@ -151,6 +181,15 @@ const schema = z
     {
       message:
         'PAYMENTS_PROVIDER=wompi requires WOMPI_* and PAYMENTS_REDIRECT_URL',
+    },
+  )
+  .refine(
+    (env) =>
+      env.PAYMENTS_PROVIDER !== 'wompi' ||
+      !isLocalUrl(env.PAYMENTS_REDIRECT_URL),
+    {
+      message:
+        'Wompi rejects PAYMENTS_REDIRECT_URL on localhost: use http://lvh.me:<port>/… (it resolves to 127.0.0.1)',
     },
   )
   .refine(

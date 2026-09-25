@@ -48,7 +48,7 @@ import type {
   FavoriteRepository,
   UserPantryRepository,
 } from '../domain/personal.js';
-import { CocktailDbSource } from './cocktaildb/cocktaildb.source.js';
+import { cocktailDbSourceFrom } from './cocktaildb/cocktaildb.source.js';
 import { AdminCatalogController } from './http/admin-catalog.controller.js';
 import { DrinksController } from './http/drinks.controller.js';
 import { LabController } from './http/lab.controller.js';
@@ -116,19 +116,8 @@ import {
         new DrizzleDrinkRepository(db, env.CATALOG_CACHE_CHECK_SECONDS * 1000),
       [DRIZZLE, ENV],
     ),
-    provide(
-      DRINK_SOURCE,
-      (env: Env) =>
-        new CocktailDbSource({
-          baseUrl: env.COCKTAILDB_BASE_URL,
-          apiKey: env.COCKTAILDB_API_KEY,
-          timeoutMs: env.COCKTAILDB_TIMEOUT_MS,
-          crawlConcurrency: env.COCKTAILDB_CRAWL_CONCURRENCY,
-          retries: env.COCKTAILDB_RETRIES,
-          imagesBaseUrl: env.COCKTAILDB_IMAGES_BASE_URL,
-        }),
-      [ENV],
-    ),
+    // Null with CATALOG_SOURCE=snapshot: the catalog seeded by the migrations is all there is.
+    provide(DRINK_SOURCE, (env: Env) => cocktailDbSourceFrom(env), [ENV]),
     provide(
       USER_PANTRY_REPOSITORY,
       (db: Database) => new DrizzleUserPantryRepository(db),
@@ -143,8 +132,8 @@ import {
     // Application
     provide(
       DrinkCatalog,
-      (repo: DrinkRepository, source: DrinkSource, env: Env) =>
-        new DrinkCatalog(repo, source, env.CATALOG_TTL_MS),
+      (repo: DrinkRepository, source: DrinkSource | null, env: Env) =>
+        new DrinkCatalog(repo, source, env.CATALOG_TTL_MS ?? 0),
       [DRINK_REPOSITORY, DRINK_SOURCE, ENV],
     ),
     provide(SearchDrinks, (c: DrinkCatalog) => new SearchDrinks(c), [

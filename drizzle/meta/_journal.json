@@ -78,6 +78,27 @@
       "when": 1790293084416,
       "tag": "0010_rate_limit",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1790312836232,
+      "tag": "0011_seed_drinks_catalog",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1790314503158,
+      "tag": "0012_images_cloudinary",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1790315805866,
+      "tag": "0013_seed_demo_users",
+      "breakpoints": true
     }
   ]
 }

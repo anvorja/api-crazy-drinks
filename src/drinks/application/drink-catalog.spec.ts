@@ -48,4 +48,33 @@ describe('DrinkCatalog', () => {
     source.up = false;
     expect((await catalog.findById('4'))?.name).toBe('Margarita');
   });
+
+  describe('without an external source (local snapshot)', () => {
+    beforeEach(async () => {
+      await repository.saveMany(DRINKS);
+      catalog = new DrinkCatalog(repository, null, HOUR, () => now);
+    });
+
+    it('serves the local data and searches it', async () => {
+      expect(await catalog.all()).toHaveLength(DRINKS.length);
+      expect((await catalog.search('moj')).map((d) => d.name)).toEqual([
+        'Mojito',
+      ]);
+      expect((await catalog.findById('4'))?.name).toBe('Margarita');
+      expect(await catalog.findById('does-not-exist')).toBeNull();
+      expect(await catalog.random()).toBeNull();
+    });
+
+    it('refuses to sync and reports the snapshot mode', async () => {
+      await expect(catalog.sync()).rejects.toMatchObject({
+        kind: 'conflict',
+        code: 'CATALOG_SOURCE_DISABLED',
+      });
+      expect(await catalog.status()).toMatchObject({
+        mode: 'snapshot',
+        size: DRINKS.length,
+        syncing: false,
+      });
+    });
+  });
 });

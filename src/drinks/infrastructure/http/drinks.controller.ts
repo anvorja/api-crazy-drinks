@@ -1,4 +1,4 @@
-import { Controller, Get, Inject, Param, Query } from '@nestjs/common';
+import { Controller, Get, Param, Query } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import {
   ApiErrors,
@@ -9,14 +9,11 @@ import {
 } from '../../../shared/infrastructure/http/openapi.js';
 import { ZodValidationPipe } from '../../../shared/infrastructure/http/zod-validation.pipe.js';
 import { Cacheable } from '../../../shared/infrastructure/http/cache-control.js';
-import { ENV } from '../../../shared/infrastructure/config/config.module.js';
-import type { Env } from '../../../shared/infrastructure/config/env.js';
 import {
   ExploreDrinks,
   GetDrinkFacets,
   SuggestDrinks,
 } from '../../application/use-cases/explore.js';
-import { ingredientImage } from '../cocktaildb/images.js';
 import type { ExploreQueryDto, SuggestQueryDto } from './dto/explore.dto.js';
 import {
   explorePageSchema,
@@ -78,7 +75,6 @@ export class DrinksController {
     private readonly exploreDrinks: ExploreDrinks,
     private readonly getDrinkFacets: GetDrinkFacets,
     private readonly suggestDrinks: SuggestDrinks,
-    @Inject(ENV) private readonly env: Env,
   ) {}
 
   @Get()
@@ -136,16 +132,14 @@ export class DrinksController {
       query.limit,
       visibility,
     );
-    return toSuggestResponse(suggestions, (name) =>
-      ingredientImage(this.env.COCKTAILDB_IMAGES_BASE_URL, name),
-    );
+    return toSuggestResponse(suggestions);
   }
 
   @Get('search')
   @Cacheable()
   @ApiOperation({
     summary: 'Search drinks by name',
-    description: `Searches TheCocktailDB and stores the results; falls back to the local catalog if it is down. ${AGE_NOTE}`,
+    description: `Searches the catalog by name (and TheCocktailDB too when CATALOG_SOURCE=cocktaildb, falling back to the catalog if it is down). ${AGE_NOTE}`,
   })
   @ApiQueryFrom(searchDrinksQuerySchema)
   @ApiResponseFrom(200, drinkListResponseSchema, 'Matching drinks')

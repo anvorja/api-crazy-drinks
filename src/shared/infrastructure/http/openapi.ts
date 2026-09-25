@@ -129,7 +129,7 @@ const ERROR_DESCRIPTIONS: Record<number, string> = {
   404: 'Resource not found.',
   409: 'Conflict with existing data.',
   429: 'Too many requests. See the Retry-After header.',
-  503: 'A dependency (TheCocktailDB) is unavailable.',
+  503: 'A dependency (the database or, when syncing with it, TheCocktailDB) is unavailable.',
 };
 
 /** Documents the error responses an endpoint may return. */
