@@ -43,6 +43,30 @@ describe('parseEnv', () => {
     ).toThrow('REFRESH_COOKIE_SECURE');
   });
 
+  it('rejects a Wompi redirect on localhost, which Wompi blocks', () => {
+    const wompi = {
+      ...TEST_ENV,
+      PAYMENTS_PROVIDER: 'wompi',
+      WOMPI_PUBLIC_KEY: 'pub_test_x',
+      WOMPI_INTEGRITY_SECRET: 'test_integrity_x',
+      WOMPI_EVENTS_SECRET: 'test_events_x',
+      WOMPI_API_URL: 'https://sandbox.wompi.co/v1',
+      WOMPI_CHECKOUT_URL: 'https://checkout.wompi.co/p/',
+    };
+    expect(() =>
+      parseEnv({
+        ...wompi,
+        PAYMENTS_REDIRECT_URL: 'http://localhost:5173/pago/resultado',
+      }),
+    ).toThrow('lvh.me');
+    expect(
+      parseEnv({
+        ...wompi,
+        PAYMENTS_REDIRECT_URL: 'http://lvh.me:5173/pago/resultado',
+      }).PAYMENTS_PROVIDER,
+    ).toBe('wompi');
+  });
+
   it('the snapshot catalog needs no TheCocktailDB settings; cocktaildb needs them', () => {
     const withoutCocktailDb = Object.fromEntries(
       Object.entries(TEST_ENV).filter(

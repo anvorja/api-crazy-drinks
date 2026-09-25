@@ -24,6 +24,13 @@ const originList = z
       )
       .min(1),
   );
+/** Wompi's firewall rejects checkouts whose redirect points to these hosts (403 from CloudFront). */
+const LOCAL_HOSTS = ['localhost', '127.0.0.1', '[::1]'];
+const isLocalUrl = (url: string | undefined) =>
+  url !== undefined &&
+  URL.canParse(url) &&
+  LOCAL_HOSTS.includes(new URL(url).hostname);
+
 /** Optional variable where an empty value (`NAME=` in a .env file) means "not set". */
 const optional = <T extends z.ZodType>(schema: T) =>
   z.preprocess((v) => (v === '' ? undefined : v), schema.optional());
@@ -174,6 +181,15 @@ const schema = z
     {
       message:
         'PAYMENTS_PROVIDER=wompi requires WOMPI_* and PAYMENTS_REDIRECT_URL',
+    },
+  )
+  .refine(
+    (env) =>
+      env.PAYMENTS_PROVIDER !== 'wompi' ||
+      !isLocalUrl(env.PAYMENTS_REDIRECT_URL),
+    {
+      message:
+        'Wompi rejects PAYMENTS_REDIRECT_URL on localhost: use http://lvh.me:<port>/… (it resolves to 127.0.0.1)',
     },
   )
   .refine(
