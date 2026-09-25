@@ -1,9 +1,10 @@
 name: CI/CD
 
 # CI on every PR to main/develop. The rulesets require the three job names below as status checks.
-# CD on push to main (a release): the image CI built and tested goes to Docker Hub as `latest` and
-# `<sha>`, and Render deploys that exact image. Secrets: DOCKER_USERNAME, DOCKER_TOKEN,
-# RENDER_API_KEY, RENDER_SERVICE_ID.
+# CD, once every check passed, with the very image CI tested (never rebuilt):
+#   push to develop → Docker Hub `develop` + `<sha>`, and Render (staging) deploys that `<sha>`.
+#   push to main    → Docker Hub `latest` + `<sha>` (production; where it runs is still to be defined).
+# Secrets: DOCKER_USERNAME, DOCKER_TOKEN, RENDER_API_KEY, RENDER_SERVICE_ID (the staging service).
 on:
   pull_request:
     branches: [main, develop]
@@ -99,30 +100,30 @@ jobs:
           done
           docker logs api
           exit 1
-      # Only on main: the tested image travels to the publish job, which runs once every check passed.
+      # On main and develop: the tested image travels to the publish job, which runs once every check passed.
       - name: Guardar la imagen probada
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
         run: docker save api-drinks:ci | gzip > image.tar.gz
       - uses: actions/upload-artifact@v4
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
         with:
           name: image
           path: image.tar.gz
           retention-days: 1
 
   publish:
-    name: Publicar y desplegar
-    # Push to main only (release merges), and only after the three required checks passed.
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    name: Publicar imagen
+    # Push to main or develop, and only after the three required checks passed.
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
     needs: [quality, tests, docker]
     runs-on: ubuntu-latest
-    timeout-minutes: 25
-    environment: production
-    concurrency:
-      group: deploy-production
-      cancel-in-progress: false
+    timeout-minutes: 10
     env:
       IMAGE: docker.io/${{ secrets.DOCKER_USERNAME }}/api-drinks
+      # latest = production (main); develop = what staging runs.
+      CHANNEL: ${{ github.ref == 'refs/heads/main' && 'latest' || 'develop' }}
+    outputs:
+      sha: ${{ steps.vars.outputs.SHORT_SHA }}
     steps:
       - name: Obtener short SHA
         id: vars
@@ -141,49 +142,53 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_TOKEN }}
 
-      - name: Push a Docker Hub (latest y <sha>)
+      - name: Push a Docker Hub (canal y <sha>)
         run: |
-          for tag in latest "${{ steps.vars.outputs.SHORT_SHA }}"; do
+          for tag in "$CHANNEL" "${{ steps.vars.outputs.SHORT_SHA }}"; do
             docker tag api-drinks:ci "$IMAGE:$tag"
             docker push "$IMAGE:$tag"
           done
+          echo "- Imagen: \`$IMAGE:$CHANNEL\` y \`$IMAGE:${{ steps.vars.outputs.SHORT_SHA }}\`" >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Desplegar en Render ese commit exacto
+  deploy-staging:
+    name: Desplegar en staging (Render)
+    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
+    needs: publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: staging
+    concurrency:
+      group: deploy-staging
+      cancel-in-progress: false
+    env:
+      IMAGE: docker.io/${{ secrets.DOCKER_USERNAME }}/api-drinks:${{ needs.publish.outputs.sha }}
+      RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+      RENDER_SERVICE_ID: ${{ secrets.RENDER_SERVICE_ID }}
+    steps:
+      - name: Pedir a Render que despliegue ese <sha>
         id: deploy
-        env:
-          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
-          RENDER_SERVICE_ID: ${{ secrets.RENDER_SERVICE_ID }}
         run: |
-          # The <sha> tag, not latest: Render runs exactly what this workflow tested.
-          body=$(jq -n --arg img "$IMAGE:${{ steps.vars.outputs.SHORT_SHA }}" '{imageUrl: $img}')
+          # The <sha>, not the moving `develop` tag: Render runs exactly this commit's image.
+          body=$(jq -n --arg img "$IMAGE" '{imageUrl: $img}')
           deploy=$(curl -fsS -X POST "https://api.render.com/v1/services/$RENDER_SERVICE_ID/deploys" \
             -H "Authorization: Bearer $RENDER_API_KEY" \
             -H 'accept: application/json' -H 'content-type: application/json' -d "$body")
           echo "id=$(jq -r .id <<<"$deploy")" >> "$GITHUB_OUTPUT"
-          echo "Render: despliegue $(jq -r .id <<<"$deploy") solicitado"
+          echo "Render: despliegue $(jq -r .id <<<"$deploy") de $IMAGE solicitado"
 
       - name: Esperar a que Render lo deje en vivo
-        env:
-          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
-          RENDER_SERVICE_ID: ${{ secrets.RENDER_SERVICE_ID }}
         run: |
           for _ in $(seq 1 60); do
             status=$(curl -fsS "https://api.render.com/v1/services/$RENDER_SERVICE_ID/deploys/${{ steps.deploy.outputs.id }}" \
               -H "Authorization: Bearer $RENDER_API_KEY" -H 'accept: application/json' | jq -r .status)
             echo "Render: $status"
             case "$status" in
-              live) exit 0 ;;
+              live)
+                echo "- Staging: \`$IMAGE\` en vivo en Render" >> "$GITHUB_STEP_SUMMARY"
+                exit 0 ;;
               build_failed|update_failed|canceled|deactivated|pre_deploy_failed)
                 echo "::error::El despliegue en Render terminó en $status"; exit 1 ;;
             esac
             sleep 15
           done
           echo "::error::Render no terminó en 15 minutos"; exit 1
-
-      - name: Resumen
-        run: |
-          {
-            echo "### Despliegue en producción"
-            echo "- Imagen: \`$IMAGE:latest\` y \`$IMAGE:${{ steps.vars.outputs.SHORT_SHA }}\`"
-            echo "- Render: despliegue \`${{ steps.deploy.outputs.id }}\` en vivo"
-          } >> "$GITHUB_STEP_SUMMARY"

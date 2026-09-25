@@ -343,31 +343,47 @@ un job, hay que actualizar también los rulesets**, o los PR quedarán esperando
 | **Pruebas e2e e integración** | Pruebas e2e con fakes en memoria (incluida la verificación de OpenAPI) y, sobre un PostgreSQL efímero, migraciones y pruebas de integración |
 | **Imagen Docker** | Construye la imagen y hace una prueba de humo: arranca el contenedor y verifica que `/health` responda |
 
-Los tres corren en paralelo. Con un push a `main` (el merge de un release) se agrega un cuarto job:
+Los tres corren en paralelo. Con un push a `develop` o a `main` se agregan los jobs de CD, que
+esperan a que pasen los tres checks:
 
-| Job | Qué hace |
-| --- | -------- |
-| **Publicar y desplegar** | Espera a que pasen los tres checks. Toma **la misma imagen** que probó "Imagen Docker" (no la reconstruye), la sube a Docker Hub como `latest` y `<sha>`, y le pide a Render desplegar ese `<sha>`. Espera a que Render la deje en vivo: si el despliegue falla, el workflow falla |
+| Job | Cuándo | Qué hace |
+| --- | ------ | -------- |
+| **Publicar imagen** | Push a `develop` o `main` | Toma **la misma imagen** que probó "Imagen Docker" (no la reconstruye) y la sube a Docker Hub con el canal (`develop` o `latest`) y el `<sha>` |
+| **Desplegar en staging (Render)** | Push a `develop` | Le pide a Render desplegar ese `<sha>` y espera a que quede en vivo. Si el despliegue falla, el workflow falla |
+
+**Ambientes:**
+
+| Ambiente | Rama | Imagen | Dónde corre |
+| -------- | ---- | ------ | ----------- |
+| **Staging** | `develop` | `develop` y `<sha>` | Render (`api-drinks-35rb.onrender.com`), con el frontend en Netlify. Cada merge a `develop` se ve desplegado junto a las demás features |
+| **Producción** | `main` (releases) | `latest`, `<sha>` y `X.Y.Z` | Servicios propios, por definir. El CD deja la imagen lista en Docker Hub |
+
+Render despliega el **`<sha>`**, no la etiqueta `develop`:
+- es inmutable, así que Render corre exactamente la imagen que el workflow probó, aunque entre
+  tanto llegue otro merge;
+- permite volver atrás desplegando un `<sha>` anterior.
 
 - **Configuración:** el CI no tiene configuración propia. Parte de `.env.example`
   (`.github/actions/ci-env`) y genera en cada ejecución los secretos que faltan (contraseña del
   Postgres efímero, `JWT_SECRET`). No hay secretos escritos en el repositorio.
-- **Secretos del CD** (_Settings → Secrets and variables → Actions_):
+- **Secretos del CD** (_Settings → Secrets and variables → Actions_; los de Render pueden ir en
+  el environment `staging`):
 
   | Secreto | Qué es |
   | ------- | ------ |
   | `DOCKER_USERNAME` | Usuario de Docker Hub. La imagen es `<usuario>/api-drinks` |
   | `DOCKER_TOKEN` | Access token de Docker Hub (_Account settings → Personal access tokens_, permiso _Read & Write_) |
   | `RENDER_API_KEY` | API key de Render (_Account settings → API Keys_) |
-  | `RENDER_SERVICE_ID` | ID del web service (`srv-…`, está en su URL del panel) |
+  | `RENDER_SERVICE_ID` | ID del web service de **staging** (`srv-…`, está en su URL del panel) |
 
 - **Tags de la imagen** `docker.io/<usuario>/api-drinks`:
 
   | Tag | Cuándo se actualiza | Para |
   | --- | ------------------- | ---- |
-  | `latest` | Cada push a `main` | La versión en producción |
-  | `<sha>` (7 caracteres) | Cada push a `main` | Una imagen exacta; es la que se despliega en Render |
-  | `5.0.0`, `5.0`, `5` | Al subir el tag `vX.Y.Z` | Fijar una versión o hacer rollback |
+  | `develop` | Cada push a `develop` | Lo que corre en staging |
+  | `latest` | Cada push a `main` | La versión de producción |
+  | `<sha>` (7 caracteres) | Cada push a `develop` o `main` | Una imagen exacta. Es la que despliega Render y la que sirve para volver atrás |
+  | `5.0.0`, `5.0`, `5` | Al subir el tag `vX.Y.Z` | Fijar una versión |
 
 - **Imagen de la versión** (`.github/workflows/release-image.yml`):
   - **Qué hace:** al subir un tag `vX.Y.Z` **no reconstruye** la imagen. Toma la que el CD publicó
@@ -377,9 +393,10 @@ Los tres corren en paralelo. Con un push a `main` (el merge de un release) se ag
     `package.json` y que el commit esté en `main`. Si algo no cuadra, falla antes de publicar.
   - **Lanzarlo a mano:** también se ejecuta desde *Actions → Imagen de la versión → Run workflow*,
     indicando el tag.
-- **Render:** el web service es de tipo **imagen existente** (`docker.io/<usuario>/api-drinks`),
-  no de repositorio. Así Render no construye nada: ejecuta la imagen que el CI probó.
-  - **Rollback:** en Render, _Manual Deploy_ con un `<sha>` anterior; o re-ejecutar el workflow de
+- **Render (staging):** el web service es de tipo **imagen existente**
+  (`docker.io/<usuario>/api-drinks`), no de repositorio.
+  - Render no construye nada: ejecuta la imagen que el CI probó.
+  - **Rollback:** en Render, _Manual Deploy_ con un `<sha>` anterior, o re-ejecutar el workflow de
     ese commit.
 
 ## Despliegue
@@ -396,8 +413,8 @@ docker compose --profile mail up -d   # además Mailpit para ver los correos: ht
 
 ### En una plataforma (Render, Railway, Fly.io, ECS, Cloud Run, Kubernetes…)
 
-- **Imagen:** la que publica el CD en Docker Hub, `docker.io/<usuario>/api-drinks`. En Render se
-  despliega el `<sha>` de cada release; `latest` apunta a la misma.
+- **Imagen:** la que publica el CD en Docker Hub, `docker.io/<usuario>/api-drinks`. Staging (Render)
+  despliega el `<sha>` de cada merge a `develop`; producción usará `latest` o un `X.Y.Z`.
 - **Base de datos:** un **PostgreSQL gestionado**, con backups automáticos y restauración a un
   punto en el tiempo.
 - **Configuración:** todas las variables como **secretos de la plataforma**; nunca un `.env` dentro
