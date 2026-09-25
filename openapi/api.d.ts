@@ -1651,7 +1651,7 @@ export interface components {
         | 'fizzy'
         | 'spicy'
       )[];
-      /** @example El que no perdona con alma cítrica */
+      /** @example Carácter que no perdona con alma cítrica */
       personality: string;
       /** @enum {string} */
       strength: 'zero' | 'light' | 'medium' | 'strong';
@@ -1770,7 +1770,7 @@ export interface components {
         | 'fizzy'
         | 'spicy'
       )[];
-      /** @example El ácido rebelde con alma frutal */
+      /** @example Espíritu ácido y rebelde con alma frutal */
       personality: string;
       /** @enum {string} */
       preferredStrength: 'zero' | 'light' | 'medium' | 'strong';

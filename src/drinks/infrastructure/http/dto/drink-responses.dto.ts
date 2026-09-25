@@ -85,7 +85,7 @@ export const flavorDnaResponseSchema = z
       .meta({ description: 'Dimensions scoring 60 or more' }),
     personality: z
       .string()
-      .meta({ example: 'El que no perdona con alma cítrica' }),
+      .meta({ example: 'Carácter que no perdona con alma cítrica' }),
     strength: z.enum(['zero', 'light', 'medium', 'strong']),
     complexity: z.number().int().meta({ description: 'Number of ingredients' }),
   })

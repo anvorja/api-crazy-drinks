@@ -5,6 +5,8 @@ describe('mood', () => {
   it('finds moods by key or spanish alias', () => {
     expect(findMood('Guayabo')?.key).toBe('hungover');
     expect(findMood('romántico')?.key).toBe('romantic');
+    expect(findMood('aventurera')?.key).toBe('adventurous');
+    expect(findMood('relajada')?.key).toBe(findMood('relajado')?.key);
     expect(findMood('bored')).toBeUndefined();
   });
 

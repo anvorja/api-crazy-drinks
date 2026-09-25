@@ -222,16 +222,20 @@ const RULE_MATCHERS = RULES.map(
 const matchesAny = (ingredient: string, matchers: RegExp[]) =>
   matchers.some((m) => m.test(ingredient));
 
+/**
+ * Gender-neutral: the adjective agrees with a noun (paladar, espíritu…), not with the person,
+ * so it reads right for anyone's taste and for a drink.
+ */
 const PERSONALITIES: Record<FlavorDimension, string> = {
-  sweet: 'El goloso',
-  sour: 'El ácido rebelde',
-  bitter: 'El intelectual amargo',
-  strong: 'El que no perdona',
-  fruity: 'El tropical',
-  herbal: 'El botánico',
-  creamy: 'El postre líquido',
-  fizzy: 'El burbujeante',
-  spicy: 'El picante',
+  sweet: 'Paladar goloso',
+  sour: 'Espíritu ácido y rebelde',
+  bitter: 'Mente intelectual y amarga',
+  strong: 'Carácter que no perdona',
+  fruity: 'Espíritu tropical',
+  herbal: 'Paladar botánico',
+  creamy: 'Corazón de postre',
+  fizzy: 'Espíritu burbujeante',
+  spicy: 'Paladar picante',
 };
 
 export const SOULS: Record<FlavorDimension, string> = {
@@ -313,12 +317,12 @@ export function flavorDna(drink: Drink): FlavorDna {
   };
 }
 
-/** "El goloso con alma cremosa": from the two strongest traits. */
+/** "Paladar goloso con alma cremosa": from the two strongest traits. */
 export function describePersonality([
   first,
   second,
 ]: FlavorDimension[]): string {
-  if (!first) return 'El misterioso';
+  if (!first) return 'Paladar misterioso';
   return second
     ? `${PERSONALITIES[first]} con alma ${SOULS[second]}`
     : PERSONALITIES[first];

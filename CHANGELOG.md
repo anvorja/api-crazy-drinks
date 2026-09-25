@@ -35,6 +35,10 @@ versión del contrato HTTP (`/v1`).
 - **`scripts/wompi-sandbox.sh`:** genera checkouts, verifica pagos y muestra el plan y el historial
   de una cuenta. La guía explica cómo probar otros montos y planes, qué parámetros van en la firma
   de integridad y los parámetros opcionales de Wompi.
+- **ADN con lenguaje neutro:** las personalidades ya no asumen el género de la persona. El adjetivo
+  concuerda con un sustantivo (paladar, espíritu, carácter, mente, corazón): "El ácido rebelde con
+  alma frutal" ahora es "Espíritu ácido y rebelde con alma frutal". Los moods también reconocen las
+  formas femeninas ("aventurera", "relajada", "romántica"…).
 - **Documentación:** los datos de las bebidas son gratis. Los planes pagos cubren solo funciones
   propias (bares, inventario, carta con márgenes y API keys de bares).
 
