@@ -133,6 +133,12 @@ const schema = z
         .string()
         .regex(/^pub_(test|prod)_/, 'Starts with pub_test_ or pub_prod_'),
     ),
+    /** Consulting a transaction by id requires it (Wompi rejects public or no key). */
+    WOMPI_PRIVATE_KEY: optional(
+      z
+        .string()
+        .regex(/^prv_(test|prod)_/, 'Starts with prv_test_ or prv_prod_'),
+    ),
     WOMPI_INTEGRITY_SECRET: optional(
       z.string().regex(/^(test|prod)_integrity_/),
     ),
@@ -175,6 +181,7 @@ const schema = z
     (env) =>
       env.PAYMENTS_PROVIDER !== 'wompi' ||
       (env.WOMPI_PUBLIC_KEY &&
+        env.WOMPI_PRIVATE_KEY &&
         env.WOMPI_INTEGRITY_SECRET &&
         env.WOMPI_EVENTS_SECRET &&
         env.WOMPI_API_URL &&

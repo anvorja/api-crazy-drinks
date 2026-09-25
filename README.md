@@ -76,7 +76,7 @@ inválida, la app no arranca y lista cada problema.
 | Frontend (web)  | `CORS_ORIGINS`, `REFRESH_COOKIE_SAMESITE`, `REFRESH_COOKIE_SECURE`, `REFRESH_COOKIE_DOMAIN` (ver *Conectar un frontend*) |
 | Límite de login | `LOGIN_MAX_FAILURES_PER_ACCOUNT`, `LOGIN_MAX_FAILURES_PER_IP`, `LOGIN_LOCKOUT_WINDOW_SECONDS` |
 | Recuperar contraseña | `PASSWORD_RESET_URL` (página del frontend), `PASSWORD_RESET_TTL_MINUTES`, `PASSWORD_RESET_MAX_PER_ACCOUNT`, `PASSWORD_RESET_MAX_PER_IP`, `PASSWORD_RESET_WINDOW_SECONDS` |
-| Pagos           | `PAYMENTS_PROVIDER` (`none` o `wompi`), `SUBSCRIPTION_PERIOD_DAYS`, `PAYMENTS_CHECKOUT_TTL_MINUTES`, `PAYMENTS_REDIRECT_URL`, `WOMPI_PUBLIC_KEY`, `WOMPI_INTEGRITY_SECRET`, `WOMPI_EVENTS_SECRET`, `WOMPI_API_URL`, `WOMPI_CHECKOUT_URL`, `WOMPI_TIMEOUT_MS` |
+| Pagos           | `PAYMENTS_PROVIDER` (`none` o `wompi`), `SUBSCRIPTION_PERIOD_DAYS`, `PAYMENTS_CHECKOUT_TTL_MINUTES`, `PAYMENTS_REDIRECT_URL`, `WOMPI_PUBLIC_KEY`, `WOMPI_PRIVATE_KEY`, `WOMPI_INTEGRITY_SECRET`, `WOMPI_EVENTS_SECRET`, `WOMPI_API_URL`, `WOMPI_CHECKOUT_URL`, `WOMPI_TIMEOUT_MS` |
 | Correo          | `MAIL_TRANSPORT` (`log` o `smtp`), `MAIL_FROM`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASSWORD` |
 | Admin inicial   | `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `ADMIN_NAME`, `ADMIN_BIRTH_DATE` (las cuatro o ninguna) |
 
@@ -830,7 +830,7 @@ PayU…) sería otro adaptador.
 1. Crea una cuenta en [comercios.wompi.co](https://comercios.wompi.co). En *Desarrolladores* están
    las llaves de pruebas: `pub_test_…`, el secreto de integridad `test_integrity_…` y el de eventos
    `test_events_…`.
-2. En `.env`: `PAYMENTS_PROVIDER=wompi`, las tres llaves y `WOMPI_API_URL=https://sandbox.wompi.co/v1`.
+2. En `.env`: `PAYMENTS_PROVIDER=wompi`, las cuatro llaves y `WOMPI_API_URL=https://sandbox.wompi.co/v1`.
    La llave privada (`prv_test_…`) no se usa.
    - **`PAYMENTS_REDIRECT_URL` no puede apuntar a `localhost` ni a `127.0.0.1`.** El firewall de
      Wompi responde `403` en el checkout, y por eso la API no arranca con esa configuración. En local

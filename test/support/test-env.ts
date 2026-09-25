@@ -50,6 +50,7 @@ export const TEST_ENV: Record<string, string> = {
   PAYMENTS_CHECKOUT_TTL_MINUTES: '60',
   PAYMENTS_REDIRECT_URL: 'http://app.test/pago',
   WOMPI_PUBLIC_KEY: 'pub_test_fake',
+  WOMPI_PRIVATE_KEY: 'prv_test_fake',
   WOMPI_INTEGRITY_SECRET: 'test_integrity_fake',
   WOMPI_EVENTS_SECRET: 'test_events_fake',
   WOMPI_API_URL: 'http://wompi.test/v1',

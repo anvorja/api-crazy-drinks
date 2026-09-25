@@ -10,6 +10,7 @@ export class FakeWompiGateway extends WompiGateway {
   constructor() {
     super({
       publicKey: TEST_ENV.WOMPI_PUBLIC_KEY,
+      privateKey: TEST_ENV.WOMPI_PRIVATE_KEY,
       integritySecret: TEST_ENV.WOMPI_INTEGRITY_SECRET,
       eventsSecret: TEST_ENV.WOMPI_EVENTS_SECRET,
       apiUrl: TEST_ENV.WOMPI_API_URL,

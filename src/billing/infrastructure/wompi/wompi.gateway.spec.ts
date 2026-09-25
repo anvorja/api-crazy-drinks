@@ -8,6 +8,7 @@ const gateway = (
 ) =>
   new WompiGateway({
     publicKey: 'pub_test_abc',
+    privateKey: 'prv_test_def',
     integritySecret: 'test_integrity_xyz',
     eventsSecret,
     apiUrl: 'https://sandbox.wompi.co/v1',
@@ -98,5 +99,34 @@ describe('WompiGateway', () => {
       false,
     );
     expect(gateway().verifyEvent({ nope: true }).valid).toBe(false);
+  });
+
+  it('queries a transaction with the private key (Wompi rejects it otherwise)', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          data: {
+            id: '12-34',
+            reference: 'drinks-p1',
+            status: 'APPROVED',
+            amount_in_cents: 8_900_000,
+            currency: 'COP',
+          },
+        }),
+        { status: 200 },
+      ),
+    );
+    try {
+      const outcome = await gateway().fetchOutcome('12-34');
+      expect(outcome).toMatchObject({
+        transactionId: '12-34',
+        status: 'approved',
+      });
+      const [url, init] = fetchMock.mock.calls[0];
+      expect(url).toBe('https://sandbox.wompi.co/v1/transactions/12-34');
+      expect(init?.headers).toEqual({ Authorization: 'Bearer prv_test_def' });
+    } finally {
+      fetchMock.mockRestore();
+    }
   });
 });

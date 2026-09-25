@@ -9,6 +9,8 @@ import {
 
 export interface WompiSettings {
   publicKey: string;
+  /** Server-side only: Wompi answers transaction queries only with it. */
+  privateKey: string;
   integritySecret: string;
   eventsSecret: string;
   /** https://sandbox.wompi.co/v1 or https://production.wompi.co/v1 */
@@ -81,6 +83,7 @@ export class WompiGateway implements PaymentGateway {
       res = await fetch(
         `${this.settings.apiUrl}/transactions/${encodeURIComponent(transactionId)}`,
         {
+          headers: { Authorization: `Bearer ${this.settings.privateKey}` },
           signal: AbortSignal.timeout(this.settings.timeoutMs),
         },
       );

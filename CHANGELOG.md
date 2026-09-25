@@ -51,6 +51,15 @@ versión del contrato HTTP (`/v1`).
   TypeScript + shadcn/ui), el recorrido de la demo, el mapa de pantallas y la identidad visual.
   El README lo menciona en *Conectar un frontend*. El frontend aún no se implementa.
 
+### Corregido
+
+- **`verify` no podía leer las transacciones de Wompi.** Wompi ya solo responde
+  `GET /transactions/{id}` con la llave privada; sin ella devolvía `404` aunque la transacción
+  existiera, y el pago solo se liquidaba por el webhook.
+  - Nueva variable obligatoria con `PAYMENTS_PROVIDER=wompi`: **`WOMPI_PRIVATE_KEY`**
+    (`prv_test_…` / `prv_prod_…`). Va como `Authorization: Bearer` en la consulta.
+  - La API no arranca si falta o no empieza por `prv_`.
+
 ## [5.0.0] - 2026-09-25
 
 La API queda autónoma para la evaluación académica. El catálogo, las imágenes y las cuentas demo
