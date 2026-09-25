@@ -163,8 +163,11 @@ main:                         ● Release 4.1.0   (C + fix, exactamente lo proba
    ```bash
    git fetch && git tag -a vX.Y.Z origin/main -m "api-drinks X.Y.Z" && git push origin vX.Y.Z
    ```
+   Subir el tag **publica la versión**: el workflow *Imagen de la versión* toma la imagen que el
+   CI construyó y probó para ese commit y le agrega `X.Y.Z`, `X.Y`, `X` y `latest`. Si hay deploy
+   hook, además avisa a Render (ver *CI/CD*).
 5. Opcional: en GitHub, *Releases → Draft a new release*, elige el tag y pega la sección del
-   CHANGELOG. Al entrar en `main`, el CD ya publicó la imagen con el tag `latest`.
+   CHANGELOG.
 
 ### Actualizar una rama: rebase
 
@@ -302,8 +305,27 @@ Los tres corren en paralelo.
   Postgres efímero, `JWT_SECRET`). No hay secretos escritos en el repositorio y no hace falta
   configurar *secrets* en GitHub: la publicación usa el `GITHUB_TOKEN` automático.
 - **Tags de la imagen** `ghcr.io/<owner>/<repo>`:
-  - push a `main`: `latest`, `main` y `sha-<commit>`;
-  - push a `develop`: `develop` y `sha-<commit>`.
+
+  | Tag | Cuándo se actualiza | Para |
+  | --- | ------------------- | ---- |
+  | `latest` | Al publicar una versión (tag `vX.Y.Z`) | **Producción** (Render apunta aquí) |
+  | `4.0.0`, `4.0`, `4` | Al publicar esa versión | Fijar una versión o hacer rollback |
+  | `main` | Cada push a `main` | — |
+  | `develop` | Cada push a `develop` | Staging |
+  | `sha-<commit>` | Cada push | Una imagen exacta |
+
+- **Imagen de la versión** (`.github/workflows/release-image.yml`):
+  - **Qué hace:** al subir un tag `vX.Y.Z` **no reconstruye** la imagen. Toma la que el CI
+    construyó y probó para ese commit (`sha-<commit>`) y le agrega `X.Y.Z`, `X.Y`, `X` y `latest`.
+    Por eso **`latest` y la versión son la misma imagen, con el mismo *digest***.
+  - **Qué valida:** que el tag tenga formato `vX.Y.Z`, que coincida con la versión de
+    `package.json` y que el commit esté en `main`. Si algo no cuadra, falla antes de publicar.
+  - **Lanzarlo a mano:** también se ejecuta desde *Actions → Imagen de la versión → Run workflow*,
+    indicando el tag. Sirve para versiones etiquetadas antes de que existiera este workflow, o para
+    reintentar.
+  - **Render:** si el repo tiene el secreto `RENDER_DEPLOY_HOOK_URL` (*Settings → Secrets and
+    variables → Actions*), al terminar le pide a Render que despliegue. Render debe tener configurada
+    la imagen `ghcr.io/<owner>/<repo>:latest`. No hay que tocar nada al sacar una versión nueva.
 - **Despliegue:** el CD termina en la imagen publicada. Desplegarla en un servidor o una nube es el
   siguiente paso cuando se defina dónde va a vivir la API.
 
