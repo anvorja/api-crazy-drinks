@@ -23,6 +23,9 @@ versión del contrato HTTP (`/v1`).
   de transformaciones de Cloudinary, en WebP o AVIF según el navegador.
 - **Autocompletado:** la foto de un ingrediente sale del catálogo, no de una URL armada con la
   configuración. `COCKTAILDB_IMAGES_BASE_URL` solo se pide con `CATALOG_SOURCE=cocktaildb`.
+- **Cuentas demo:** la migración `0013_seed_demo_users.sql` crea 7 cuentas con datos
+  sintéticos, una por rol más un menor de edad. La premium trae historial, ADN y Cocktle, y el
+  dueño de bar trae bar, inventario y plan Pro. Ver README, *Cuentas demo*.
 - **Documentación:** los datos de las bebidas son gratis. Los planes pagos cubren solo funciones
   propias (bares, inventario, carta con márgenes y API keys de bares).
 
