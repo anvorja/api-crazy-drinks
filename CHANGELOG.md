@@ -9,6 +9,11 @@ versión del contrato HTTP (`/v1`).
 
 ### Cambiado
 
+- **Errores de Render legibles.** Si Render rechaza el despliegue o la consulta de su estado, el
+  workflow muestra el código y el mensaje de Render, no solo `curl: (22) … error: 400`.
+
+### Cambiado
+
 - **CD a Docker Hub y staging en Render.**
   - Con cada push a `develop` o `main`, y solo después de los tres checks, la imagen probada (sin
     reconstruir) se sube a Docker Hub con su canal (`develop` o `latest`) y el `<sha>`.

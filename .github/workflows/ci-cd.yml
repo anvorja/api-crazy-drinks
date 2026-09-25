@@ -170,24 +170,40 @@ jobs:
         run: |
           # The <sha>, not the moving `develop` tag: Render runs exactly this commit's image.
           body=$(jq -n --arg img "$IMAGE" '{imageUrl: $img}')
-          deploy=$(curl -fsS -X POST "https://api.render.com/v1/services/$RENDER_SERVICE_ID/deploys" \
+          response=$(curl -sS -w '\n%{http_code}' -X POST \
+            "https://api.render.com/v1/services/$RENDER_SERVICE_ID/deploys" \
             -H "Authorization: Bearer $RENDER_API_KEY" \
             -H 'accept: application/json' -H 'content-type: application/json' -d "$body")
-          echo "id=$(jq -r .id <<<"$deploy")" >> "$GITHUB_OUTPUT"
-          echo "Render: despliegue $(jq -r .id <<<"$deploy") de $IMAGE solicitado"
+          code=$(tail -n1 <<<"$response")
+          payload=$(sed '$d' <<<"$response")
+          if [[ "$code" != 2* ]]; then
+            # Render explains itself in the body (e.g. imageUrl on a service built from a repo).
+            echo "::error::Render respondió $code: $(jq -r '.message // .' <<<"$payload" 2>/dev/null || echo "$payload")"
+            exit 1
+          fi
+          echo "id=$(jq -r .id <<<"$payload")" >> "$GITHUB_OUTPUT"
+          echo "Render: despliegue $(jq -r .id <<<"$payload") de $IMAGE solicitado"
 
       - name: Esperar a que Render lo deje en vivo
         run: |
           for _ in $(seq 1 60); do
-            status=$(curl -fsS "https://api.render.com/v1/services/$RENDER_SERVICE_ID/deploys/${{ steps.deploy.outputs.id }}" \
-              -H "Authorization: Bearer $RENDER_API_KEY" -H 'accept: application/json' | jq -r .status)
+            response=$(curl -sS -w '\n%{http_code}' \
+              "https://api.render.com/v1/services/$RENDER_SERVICE_ID/deploys/${{ steps.deploy.outputs.id }}" \
+              -H "Authorization: Bearer $RENDER_API_KEY" -H 'accept: application/json')
+            code=$(tail -n1 <<<"$response")
+            payload=$(sed '$d' <<<"$response")
+            if [[ "$code" != 2* ]]; then
+              echo "::error::Render respondió $code: $(jq -r '.message // .' <<<"$payload" 2>/dev/null || echo "$payload")"
+              exit 1
+            fi
+            status=$(jq -r .status <<<"$payload")
             echo "Render: $status"
             case "$status" in
               live)
                 echo "- Staging: \`$IMAGE\` en vivo en Render" >> "$GITHUB_STEP_SUMMARY"
                 exit 0 ;;
               build_failed|update_failed|canceled|deactivated|pre_deploy_failed)
-                echo "::error::El despliegue en Render terminó en $status"; exit 1 ;;
+                echo "::error::El despliegue en Render terminó en $status. Revisa los logs del servicio en Render"; exit 1 ;;
             esac
             sleep 15
           done
