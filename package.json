@@ -1,6 +1,6 @@
 {
   "name": "api-drinks",
-  "version": "4.0.0",
+  "version": "5.0.0",
   "description": "API moderna de bebidas y cocteles sobre TheCocktailDB: despensa inteligente, cocteles por estado de ánimo, ADN de sabor y gemelos.",
   "author": "",
   "private": true,
