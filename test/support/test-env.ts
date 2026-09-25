@@ -18,6 +18,7 @@ export const TEST_ENV: Record<string, string> = {
   RATE_LIMIT_MAX: '10000',
   RATE_LIMIT_HEAVY_MAX: '10000',
   BODY_LIMIT_KB: '100',
+  CATALOG_SOURCE: 'cocktaildb',
   COCKTAILDB_BASE_URL: 'http://cocktaildb.test/api/json/v1',
   COCKTAILDB_API_KEY: 'test',
   COCKTAILDB_IMAGES_BASE_URL: 'http://cocktaildb.test/images',

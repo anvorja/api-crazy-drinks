@@ -76,13 +76,21 @@ const schema = z
     /** max-age of Cache-Control on catalog responses (0 disables caching). */
     CACHE_MAX_AGE_SECONDS: z.coerce.number().int().min(0),
 
-    COCKTAILDB_BASE_URL: z.url(),
-    COCKTAILDB_API_KEY: z.string().min(1),
+    /**
+     * snapshot: the catalog is the one the migrations seed; TheCocktailDB is never called.
+     * cocktaildb: keeps it in sync with TheCocktailDB (needs COCKTAILDB_* and CATALOG_TTL_MS).
+     */
+    CATALOG_SOURCE: z.enum(['snapshot', 'cocktaildb']),
+    COCKTAILDB_BASE_URL: optional(z.url()),
+    COCKTAILDB_API_KEY: optional(z.string().min(1)),
+    /** Drink and ingredient pictures: public static files, used in both modes. */
     COCKTAILDB_IMAGES_BASE_URL: z.url(),
-    COCKTAILDB_TIMEOUT_MS: z.coerce.number().int().positive(),
-    COCKTAILDB_RETRIES: z.coerce.number().int().min(0).max(5),
-    COCKTAILDB_CRAWL_CONCURRENCY: z.coerce.number().int().min(1).max(20),
-    CATALOG_TTL_MS: z.coerce.number().int().positive(),
+    COCKTAILDB_TIMEOUT_MS: optional(z.coerce.number().int().positive()),
+    COCKTAILDB_RETRIES: optional(z.coerce.number().int().min(0).max(5)),
+    COCKTAILDB_CRAWL_CONCURRENCY: optional(
+      z.coerce.number().int().min(1).max(20),
+    ),
+    CATALOG_TTL_MS: optional(z.coerce.number().int().positive()),
     /** How often each instance checks whether another one changed the cached catalog. */
     CATALOG_CACHE_CHECK_SECONDS: z.coerce.number().int().min(0),
     /** Apply pending migrations before starting (safe with several replicas: advisory lock). */
@@ -139,6 +147,20 @@ const schema = z
     ADMIN_NAME: optional(z.string().min(1)),
     ADMIN_BIRTH_DATE: optional(isoDate),
   })
+  .refine(
+    (env) =>
+      env.CATALOG_SOURCE !== 'cocktaildb' ||
+      (env.COCKTAILDB_BASE_URL &&
+        env.COCKTAILDB_API_KEY &&
+        env.COCKTAILDB_TIMEOUT_MS &&
+        env.COCKTAILDB_RETRIES !== undefined &&
+        env.COCKTAILDB_CRAWL_CONCURRENCY &&
+        env.CATALOG_TTL_MS),
+    {
+      message:
+        'CATALOG_SOURCE=cocktaildb requires COCKTAILDB_* and CATALOG_TTL_MS',
+    },
+  )
   .refine(
     (env) =>
       env.PAYMENTS_PROVIDER !== 'wompi' ||

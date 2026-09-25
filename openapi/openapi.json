@@ -1140,7 +1140,7 @@
             }
           },
           "503": {
-            "description": "A dependency (TheCocktailDB) is unavailable.",
+            "description": "A dependency (the database or, when syncing with it, TheCocktailDB) is unavailable.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1228,7 +1228,7 @@
             }
           },
           "503": {
-            "description": "A dependency (TheCocktailDB) is unavailable.",
+            "description": "A dependency (the database or, when syncing with it, TheCocktailDB) is unavailable.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1321,7 +1321,7 @@
             }
           },
           "503": {
-            "description": "A dependency (TheCocktailDB) is unavailable.",
+            "description": "A dependency (the database or, when syncing with it, TheCocktailDB) is unavailable.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1478,7 +1478,7 @@
             }
           },
           "503": {
-            "description": "A dependency (TheCocktailDB) is unavailable.",
+            "description": "A dependency (the database or, when syncing with it, TheCocktailDB) is unavailable.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1540,7 +1540,7 @@
             }
           },
           "503": {
-            "description": "A dependency (TheCocktailDB) is unavailable.",
+            "description": "A dependency (the database or, when syncing with it, TheCocktailDB) is unavailable.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1641,7 +1641,7 @@
             }
           },
           "503": {
-            "description": "A dependency (TheCocktailDB) is unavailable.",
+            "description": "A dependency (the database or, when syncing with it, TheCocktailDB) is unavailable.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1668,7 +1668,7 @@
     },
     "/v1/drinks/search": {
       "get": {
-        "description": "Searches TheCocktailDB and stores the results; falls back to the local catalog if it is down. Alcoholic drinks are only returned to authenticated adults.",
+        "description": "Searches the catalog by name (and TheCocktailDB too when CATALOG_SOURCE=cocktaildb, falling back to the catalog if it is down). Alcoholic drinks are only returned to authenticated adults.",
         "operationId": "DrinksController_search_v1",
         "parameters": [
           {
@@ -1729,7 +1729,7 @@
             }
           },
           "503": {
-            "description": "A dependency (TheCocktailDB) is unavailable.",
+            "description": "A dependency (the database or, when syncing with it, TheCocktailDB) is unavailable.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1898,7 +1898,7 @@
             }
           },
           "503": {
-            "description": "A dependency (TheCocktailDB) is unavailable.",
+            "description": "A dependency (the database or, when syncing with it, TheCocktailDB) is unavailable.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2460,7 +2460,7 @@
             }
           },
           "503": {
-            "description": "A dependency (TheCocktailDB) is unavailable.",
+            "description": "A dependency (the database or, when syncing with it, TheCocktailDB) is unavailable.",
             "content": {
               "application/json": {
                 "schema": {
@@ -3621,7 +3621,7 @@
             }
           },
           "503": {
-            "description": "A dependency (TheCocktailDB) is unavailable.",
+            "description": "A dependency (the database or, when syncing with it, TheCocktailDB) is unavailable.",
             "content": {
               "application/json": {
                 "schema": {
@@ -3719,7 +3719,7 @@
             }
           },
           "503": {
-            "description": "A dependency (TheCocktailDB) is unavailable.",
+            "description": "A dependency (the database or, when syncing with it, TheCocktailDB) is unavailable.",
             "content": {
               "application/json": {
                 "schema": {
@@ -3852,6 +3852,7 @@
     },
     "/v1/admin/catalog/sync": {
       "post": {
+        "description": "Only with CATALOG_SOURCE=cocktaildb; with the local snapshot it answers 409 CATALOG_SOURCE_DISABLED.",
         "operationId": "AdminCatalogController_sync_v1",
         "parameters": [],
         "responses": {
@@ -3885,8 +3886,18 @@
               }
             }
           },
+          "409": {
+            "description": "Conflict with existing data.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "503": {
-            "description": "A dependency (TheCocktailDB) is unavailable.",
+            "description": "A dependency (the database or, when syncing with it, TheCocktailDB) is unavailable.",
             "content": {
               "application/json": {
                 "schema": {
@@ -4456,7 +4467,7 @@
     },
     "/health/ready": {
       "get": {
-        "description": "Checks the database, TheCocktailDB (with latency) and the catalog.",
+        "description": "Checks the database and the catalog, plus TheCocktailDB (with latency) when the catalog syncs with it.",
         "operationId": "HealthController_ready",
         "parameters": [],
         "responses": {
@@ -4490,7 +4501,7 @@
   },
   "info": {
     "title": "api-drinks",
-    "description": "\nAPI de bebidas y cocteles sobre TheCocktailDB: despensa inteligente, cocteles por estado de ánimo,\nADN de sabor, gemelos y carta inteligente para bares.\n\n**Versión**: todas las rutas van bajo `/v1`, salvo `/health`, `/health/ready` y `/`.\n\n**Errores**: todos tienen la forma `{ statusCode, code, message, error, details? }`. El frontend decide por `code`\n(estable) y muestra su propio texto; `message` es solo una pista en inglés.\n\n**Autenticación**\n- Apps propias: `Authorization: Bearer <accessToken>` (ver /v1/auth/login). En navegador, el refresh token\n  viaja en una cookie httpOnly: haz las peticiones de /v1/auth con credentials: 'include'.\n- Integraciones de terceros: `X-API-Key: <key>` (ver /v1/me/api-keys). Cuentan contra la cuota diaria del plan\n  y responden con los headers `X-RateLimit-Limit`, `X-RateLimit-Remaining` y `X-RateLimit-Reset`.\n\n**Fuente de datos**: recetas e imágenes de [TheCocktailDB](https://www.thecocktaildb.com/). Todo frontend que\nmuestre bebidas debe mostrar \"Datos e imágenes: TheCocktailDB\" con un enlace a su sitio (condición de su uso).\n\n**Verificación de edad**: las bebidas con alcohol solo se muestran a usuarios autenticados mayores de 18 años.\n",
+    "description": "\nAPI de bebidas y cocteles sobre TheCocktailDB: despensa inteligente, cocteles por estado de ánimo,\nADN de sabor, gemelos y carta inteligente para bares.\n\n**Versión**: todas las rutas van bajo `/v1`, salvo `/health`, `/health/ready` y `/`.\n\n**Errores**: todos tienen la forma `{ statusCode, code, message, error, details? }`. El frontend decide por `code`\n(estable) y muestra su propio texto; `message` es solo una pista en inglés.\n\n**Autenticación**\n- Apps propias: `Authorization: Bearer <accessToken>` (ver /v1/auth/login). En navegador, el refresh token\n  viaja en una cookie httpOnly: haz las peticiones de /v1/auth con credentials: 'include'.\n- Integraciones de bares (carta, inventario): `X-API-Key: <key>` (ver /v1/me/api-keys). Cuentan contra la cuota\n  diaria del plan y responden con los headers `X-RateLimit-Limit`, `X-RateLimit-Remaining` y `X-RateLimit-Reset`.\n\n**Fuente de datos**: recetas e imágenes de [TheCocktailDB](https://www.thecocktaildb.com/), congeladas en una\nmigración (el catálogo no llama a su API). Todo frontend que muestre bebidas debe mostrar \"Datos e imágenes:\nTheCocktailDB\" con un enlace a su sitio (condición de su uso).\n\n**Qué se cobra**: los datos de las bebidas son gratis y abiertos, sin cuenta ni API key. Los planes pagos (Wompi)\ncubren solo funciones propias de api-drinks: bares, inventario, carta con costos y márgenes, y API keys para\nintegrar bares.\n\n**Verificación de edad**: las bebidas con alcohol solo se muestran a usuarios autenticados mayores de 18 años.\n",
     "version": "4.0.0",
     "contact": {}
   },
@@ -4607,6 +4618,7 @@
               "DRINK_NOT_FOUND",
               "MOOD_NOT_FOUND",
               "CATALOG_UNAVAILABLE",
+              "CATALOG_SOURCE_DISABLED",
               "NO_TASTE_YET",
               "TASTE_LINK_NOT_FOUND",
               "OWN_TASTE_LINK",
@@ -5292,6 +5304,14 @@
       "CatalogStatus": {
         "type": "object",
         "properties": {
+          "mode": {
+            "type": "string",
+            "enum": [
+              "snapshot",
+              "synced"
+            ],
+            "description": "snapshot: only the catalog seeded by the migrations. synced: kept in sync with TheCocktailDB."
+          },
           "size": {
             "type": "integer",
             "minimum": -9007199254740991,
@@ -5306,6 +5326,7 @@
           }
         },
         "required": [
+          "mode",
           "size",
           "lastSyncedAt",
           "syncing"
@@ -6950,7 +6971,12 @@
                 "$ref": "#/components/schemas/HealthCheck"
               },
               "theCocktailDb": {
-                "$ref": "#/components/schemas/HealthCheck"
+                "description": "Only with CATALOG_SOURCE=cocktaildb",
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/HealthCheck"
+                  }
+                ]
               },
               "catalog": {
                 "$ref": "#/components/schemas/HealthCheck"
@@ -6958,7 +6984,6 @@
             },
             "required": [
               "database",
-              "theCocktailDb",
               "catalog"
             ],
             "additionalProperties": false

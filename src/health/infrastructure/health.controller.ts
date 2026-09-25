@@ -49,7 +49,9 @@ const readinessSchema = z
     timestamp: z.string(),
     checks: z.object({
       database: checkSchema,
-      theCocktailDb: checkSchema,
+      theCocktailDb: checkSchema.optional().meta({
+        description: 'Only with CATALOG_SOURCE=cocktaildb',
+      }),
       catalog: checkSchema,
     }),
   })
@@ -70,7 +72,7 @@ const timed = async (probe: () => Promise<unknown>): Promise<Check> => {
 export class HealthController {
   constructor(
     @Inject(PG_POOL) private readonly pool: Pool,
-    @Inject(DRINK_SOURCE) private readonly source: DrinkSource,
+    @Inject(DRINK_SOURCE) private readonly source: DrinkSource | null,
     private readonly catalog: DrinkCatalog,
   ) {}
 
@@ -94,21 +96,26 @@ export class HealthController {
   @ApiOperation({
     summary: 'Readiness',
     description:
-      'Checks the database, TheCocktailDB (with latency) and the catalog.',
+      'Checks the database and the catalog, plus TheCocktailDB (with latency) when the catalog syncs with it.',
   })
   @ApiResponseFrom(200, readinessSchema, 'Every dependency is up')
   @ApiResponseFrom(503, readinessSchema, 'Some dependency is down')
   async ready(@Res({ passthrough: true }) res: Response) {
+    const source = this.source;
     const [database, theCocktailDb, catalogStatus] = await Promise.all([
       timed(() => this.pool.query('select 1')),
-      timed(() => this.source.ping()),
+      source ? timed(() => source.ping()) : undefined,
       this.catalog.status().catch(() => null),
     ]);
     const catalog: Check = catalogStatus
       ? { status: catalogStatus.size > 0 ? 'up' : 'down', ...catalogStatus }
       : { status: 'down' };
 
-    const checks = { database, theCocktailDb, catalog };
+    const checks = {
+      database,
+      catalog,
+      ...(theCocktailDb && { theCocktailDb }),
+    };
     const ok = Object.values(checks).every((c) => c.status === 'up');
     res.status(ok ? HttpStatus.OK : HttpStatus.SERVICE_UNAVAILABLE);
 

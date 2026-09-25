@@ -5,6 +5,21 @@ Todos los cambios relevantes de api-drinks. Formato basado en
 [semántico](https://semver.org/lang/es/): la versión de la aplicación es independiente de la
 versión del contrato HTTP (`/v1`).
 
+## [Unreleased]
+
+### Cambiado
+
+- **Catálogo congelado:** las 443 bebidas tomadas de TheCocktailDB quedan en la migración
+  `0011_seed_drinks_catalog.sql`. `pnpm db:migrate` crea las tablas y las siembra.
+- **Sin dependencia de TheCocktailDB:** la variable nueva y obligatoria **`CATALOG_SOURCE`** vale
+  `snapshot` por defecto, y en ese modo la API nunca llama a TheCocktailDB. `/health/ready` ya no
+  la revisa, `GET /v1/admin/catalog` informa `mode` y la sincronización manual responde
+  `409 CATALOG_SOURCE_DISABLED`. Con `CATALOG_SOURCE=cocktaildb` se sincroniza como antes.
+- **Configuración:** las variables `COCKTAILDB_*` (salvo `COCKTAILDB_IMAGES_BASE_URL`) y
+  `CATALOG_TTL_MS` solo se piden con `CATALOG_SOURCE=cocktaildb`.
+- **Documentación:** los datos de las bebidas son gratis. Los planes pagos cubren solo funciones
+  propias (bares, inventario, carta con márgenes y API keys de bares).
+
 ## [4.0.0] - 2026-09-24
 
 Primer release a producción desde `develop`.
