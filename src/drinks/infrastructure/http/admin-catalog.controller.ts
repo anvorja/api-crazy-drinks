@@ -11,6 +11,10 @@ import { DrinkCatalog } from '../../application/drink-catalog.js';
 
 export const catalogStatusResponseSchema = z
   .object({
+    mode: z.enum(['snapshot', 'synced']).meta({
+      description:
+        'snapshot: only the catalog seeded by the migrations. synced: kept in sync with TheCocktailDB.',
+    }),
     size: z.number().int(),
     lastSyncedAt: z.string().nullable(),
     syncing: z.boolean(),
@@ -38,9 +42,13 @@ export class AdminCatalogController {
 
   @Post('sync')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Force a full sync with TheCocktailDB' })
+  @ApiOperation({
+    summary: 'Force a full sync with TheCocktailDB',
+    description:
+      'Only with CATALOG_SOURCE=cocktaildb; with the local snapshot it answers 409 CATALOG_SOURCE_DISABLED.',
+  })
   @ApiResponseFrom(200, syncResponseSchema, 'Drinks synced')
-  @ApiErrors(503)
+  @ApiErrors(409, 503)
   async sync() {
     return {
       synced: await this.catalog.sync(),

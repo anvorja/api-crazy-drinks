@@ -3,7 +3,7 @@ import { parseEnv } from './env.js';
 
 describe('parseEnv', () => {
   it('lists every missing variable', () => {
-    expect(() => parseEnv({})).toThrow(/PORT[\s\S]*COCKTAILDB_BASE_URL/);
+    expect(() => parseEnv({})).toThrow(/PORT[\s\S]*CATALOG_SOURCE/);
   });
 
   it('treats empty optional variables as not set', () => {
@@ -41,5 +41,23 @@ describe('parseEnv', () => {
         REFRESH_COOKIE_SECURE: 'false',
       }),
     ).toThrow('REFRESH_COOKIE_SECURE');
+  });
+
+  it('the snapshot catalog needs no TheCocktailDB settings; cocktaildb needs them', () => {
+    const withoutCocktailDb = Object.fromEntries(
+      Object.entries(TEST_ENV).filter(
+        ([key]) =>
+          (!key.startsWith('COCKTAILDB_') ||
+            key === 'COCKTAILDB_IMAGES_BASE_URL') &&
+          key !== 'CATALOG_TTL_MS',
+      ),
+    );
+    expect(
+      parseEnv({ ...withoutCocktailDb, CATALOG_SOURCE: 'snapshot' })
+        .CATALOG_SOURCE,
+    ).toBe('snapshot');
+    expect(() =>
+      parseEnv({ ...withoutCocktailDb, CATALOG_SOURCE: 'cocktaildb' }),
+    ).toThrow('COCKTAILDB_');
   });
 });

@@ -52,6 +52,7 @@ import { PG_POOL } from '../../src/shared/infrastructure/database/database.modul
 import { setupOpenApi } from '../../src/shared/infrastructure/http/setup-openapi.js';
 import { InMemoryVenueRepository } from '../../src/venues/infrastructure/persistence/in-memory/in-memory-venue.repository.js';
 import { VENUE_REPOSITORY } from '../../src/venues/infrastructure/tokens.js';
+import { DRINKS } from './drinks.js';
 import { FakeDrinkSource } from './fake-drink-source.js';
 import { FakeMailer } from './fake-mailer.js';
 import { FakeErrorReporter } from './fake-error-reporter.js';
@@ -71,21 +72,31 @@ export interface TestApp {
 }
 
 /** Full app with every outbound adapter replaced by an in-memory fake. */
-/** `env` overrides TEST_ENV for this app only (e.g. a low rate limit). */
+/**
+ * `env` overrides TEST_ENV for this app only (e.g. a low rate limit).
+ * `snapshot`: no external source; the catalog starts with the test drinks already stored,
+ * as the seed migration leaves it.
+ */
 export async function createTestApp(
-  options: { env?: Record<string, string> } = {},
+  options: { env?: Record<string, string>; snapshot?: boolean } = {},
 ): Promise<TestApp> {
   const previous = { ...process.env };
-  Object.assign(process.env, options.env);
+  Object.assign(
+    process.env,
+    options.snapshot && { CATALOG_SOURCE: 'snapshot' },
+    options.env,
+  );
   const source = new FakeDrinkSource();
+  const drinks = new InMemoryDrinkRepository();
+  if (options.snapshot) await drinks.saveMany(DRINKS);
   const pool = new FakePgPool();
   const mailer = new FakeMailer();
   const wompi = new FakeWompiGateway();
   const errors = new FakeErrorReporter();
   const fakes: [symbol, unknown][] = [
     [PG_POOL, pool],
-    [DRINK_SOURCE, source],
-    [DRINK_REPOSITORY, new InMemoryDrinkRepository()],
+    [DRINK_SOURCE, options.snapshot ? null : source],
+    [DRINK_REPOSITORY, drinks],
     [USER_PANTRY_REPOSITORY, new InMemoryUserPantryRepository()],
     [FAVORITE_REPOSITORY, new InMemoryFavoriteRepository()],
     [REACTION_REPOSITORY, new InMemoryReactionRepository()],

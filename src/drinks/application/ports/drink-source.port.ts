@@ -1,6 +1,9 @@
 import { Drink } from '../../domain/drink.js';
 
-/** External provider of drinks (TheCocktailDB today). Throws UnavailableError when down. */
+/**
+ * External provider of drinks (TheCocktailDB). Optional: without it the catalog is the
+ * local snapshot. Throws UnavailableError when down.
+ */
 export interface DrinkSource {
   fetchAll(): Promise<Drink[]>;
   findById(id: string): Promise<Drink | null>;

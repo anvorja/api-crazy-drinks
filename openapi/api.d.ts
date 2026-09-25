@@ -528,7 +528,7 @@ export interface paths {
     };
     /**
      * Search drinks by name
-     * @description Searches TheCocktailDB and stores the results; falls back to the local catalog if it is down. Alcoholic drinks are only returned to authenticated adults.
+     * @description Searches the catalog by name (and TheCocktailDB too when CATALOG_SOURCE=cocktaildb, falling back to the catalog if it is down). Alcoholic drinks are only returned to authenticated adults.
      */
     get: operations['DrinksController_search_v1'];
     put?: never;
@@ -1076,7 +1076,10 @@ export interface paths {
     };
     get?: never;
     put?: never;
-    /** Force a full sync with TheCocktailDB */
+    /**
+     * Force a full sync with TheCocktailDB
+     * @description Only with CATALOG_SOURCE=cocktaildb; with the local snapshot it answers 409 CATALOG_SOURCE_DISABLED.
+     */
     post: operations['AdminCatalogController_sync_v1'];
     delete?: never;
     options?: never;
@@ -1211,7 +1214,7 @@ export interface paths {
     };
     /**
      * Readiness
-     * @description Checks the database, TheCocktailDB (with latency) and the catalog.
+     * @description Checks the database and the catalog, plus TheCocktailDB (with latency) when the catalog syncs with it.
      */
     get: operations['HealthController_ready'];
     put?: never;
@@ -1287,6 +1290,7 @@ export interface components {
         | 'DRINK_NOT_FOUND'
         | 'MOOD_NOT_FOUND'
         | 'CATALOG_UNAVAILABLE'
+        | 'CATALOG_SOURCE_DISABLED'
         | 'NO_TASTE_YET'
         | 'TASTE_LINK_NOT_FOUND'
         | 'OWN_TASTE_LINK'
@@ -1516,6 +1520,11 @@ export interface components {
       currentPeriodEnd: string;
     };
     CatalogStatus: {
+      /**
+       * @description snapshot: only the catalog seeded by the migrations. synced: kept in sync with TheCocktailDB.
+       * @enum {string}
+       */
+      mode: 'snapshot' | 'synced';
       size: number;
       lastSyncedAt: string | null;
       syncing: boolean;
@@ -2010,7 +2019,8 @@ export interface components {
       timestamp: string;
       checks: {
         database: components['schemas']['HealthCheck'];
-        theCocktailDb: components['schemas']['HealthCheck'];
+        /** @description Only with CATALOG_SOURCE=cocktaildb */
+        theCocktailDb?: components['schemas']['HealthCheck'];
         catalog: components['schemas']['HealthCheck'];
       };
     };
@@ -3019,7 +3029,7 @@ export interface operations {
           'application/json': components['schemas']['ErrorResponse'];
         };
       };
-      /** @description A dependency (TheCocktailDB) is unavailable. */
+      /** @description A dependency (the database or, when syncing with it, TheCocktailDB) is unavailable. */
       503: {
         headers: {
           [name: string]: unknown;
@@ -3088,7 +3098,7 @@ export interface operations {
           'application/json': components['schemas']['ErrorResponse'];
         };
       };
-      /** @description A dependency (TheCocktailDB) is unavailable. */
+      /** @description A dependency (the database or, when syncing with it, TheCocktailDB) is unavailable. */
       503: {
         headers: {
           [name: string]: unknown;
@@ -3158,7 +3168,7 @@ export interface operations {
           'application/json': components['schemas']['ErrorResponse'];
         };
       };
-      /** @description A dependency (TheCocktailDB) is unavailable. */
+      /** @description A dependency (the database or, when syncing with it, TheCocktailDB) is unavailable. */
       503: {
         headers: {
           [name: string]: unknown;
@@ -3229,7 +3239,7 @@ export interface operations {
           'application/json': components['schemas']['ErrorResponse'];
         };
       };
-      /** @description A dependency (TheCocktailDB) is unavailable. */
+      /** @description A dependency (the database or, when syncing with it, TheCocktailDB) is unavailable. */
       503: {
         headers: {
           [name: string]: unknown;
@@ -3276,7 +3286,7 @@ export interface operations {
           'application/json': components['schemas']['ErrorResponse'];
         };
       };
-      /** @description A dependency (TheCocktailDB) is unavailable. */
+      /** @description A dependency (the database or, when syncing with it, TheCocktailDB) is unavailable. */
       503: {
         headers: {
           [name: string]: unknown;
@@ -3336,7 +3346,7 @@ export interface operations {
           'application/json': components['schemas']['ErrorResponse'];
         };
       };
-      /** @description A dependency (TheCocktailDB) is unavailable. */
+      /** @description A dependency (the database or, when syncing with it, TheCocktailDB) is unavailable. */
       503: {
         headers: {
           [name: string]: unknown;
@@ -3395,7 +3405,7 @@ export interface operations {
           'application/json': components['schemas']['ErrorResponse'];
         };
       };
-      /** @description A dependency (TheCocktailDB) is unavailable. */
+      /** @description A dependency (the database or, when syncing with it, TheCocktailDB) is unavailable. */
       503: {
         headers: {
           [name: string]: unknown;
@@ -3519,7 +3529,7 @@ export interface operations {
           'application/json': components['schemas']['ErrorResponse'];
         };
       };
-      /** @description A dependency (TheCocktailDB) is unavailable. */
+      /** @description A dependency (the database or, when syncing with it, TheCocktailDB) is unavailable. */
       503: {
         headers: {
           [name: string]: unknown;
@@ -3888,7 +3898,7 @@ export interface operations {
           'application/json': components['schemas']['ErrorResponse'];
         };
       };
-      /** @description A dependency (TheCocktailDB) is unavailable. */
+      /** @description A dependency (the database or, when syncing with it, TheCocktailDB) is unavailable. */
       503: {
         headers: {
           [name: string]: unknown;
@@ -4712,7 +4722,7 @@ export interface operations {
           'application/json': components['schemas']['ErrorResponse'];
         };
       };
-      /** @description A dependency (TheCocktailDB) is unavailable. */
+      /** @description A dependency (the database or, when syncing with it, TheCocktailDB) is unavailable. */
       503: {
         headers: {
           [name: string]: unknown;
@@ -4790,7 +4800,7 @@ export interface operations {
           'application/json': components['schemas']['ErrorResponse'];
         };
       };
-      /** @description A dependency (TheCocktailDB) is unavailable. */
+      /** @description A dependency (the database or, when syncing with it, TheCocktailDB) is unavailable. */
       503: {
         headers: {
           [name: string]: unknown;
@@ -4916,7 +4926,16 @@ export interface operations {
           'application/json': components['schemas']['ErrorResponse'];
         };
       };
-      /** @description A dependency (TheCocktailDB) is unavailable. */
+      /** @description Conflict with existing data. */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ErrorResponse'];
+        };
+      };
+      /** @description A dependency (the database or, when syncing with it, TheCocktailDB) is unavailable. */
       503: {
         headers: {
           [name: string]: unknown;

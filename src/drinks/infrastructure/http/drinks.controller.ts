@@ -145,7 +145,7 @@ export class DrinksController {
   @Cacheable()
   @ApiOperation({
     summary: 'Search drinks by name',
-    description: `Searches TheCocktailDB and stores the results; falls back to the local catalog if it is down. ${AGE_NOTE}`,
+    description: `Searches the catalog by name (and TheCocktailDB too when CATALOG_SOURCE=cocktaildb, falling back to the catalog if it is down). ${AGE_NOTE}`,
   })
   @ApiQueryFrom(searchDrinksQuerySchema)
   @ApiResponseFrom(200, drinkListResponseSchema, 'Matching drinks')

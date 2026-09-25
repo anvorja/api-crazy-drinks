@@ -1,6 +1,8 @@
 # api-drinks
 
-API de bebidas y cocteles construida con NestJS sobre [TheCocktailDB](https://www.thecocktaildb.com).
+API de bebidas y cocteles construida con NestJS. Su catálogo de 443 bebidas viene de
+[TheCocktailDB](https://www.thecocktaildb.com) y está congelado en una migración, así que la API no
+depende de su servicio (ver *Datos de TheCocktailDB*).
 No es solo un buscador de recetas:
 - te dice qué puedes preparar con lo que tienes en la cocina, y qué comprar para preparar más;
 - qué tomar según tu estado de ánimo;
@@ -58,7 +60,7 @@ El `.env` real está en `.gitignore`.
 | Grupo           | Variables |
 | --------------- | --------- |
 | Servidor        | `NODE_ENV`, `PORT`, `TRUST_PROXY` (detrás de un proxy, para ver la IP real), `OPENAPI_ENABLED`, `CACHE_MAX_AGE_SECONDS` |
-| TheCocktailDB   | `COCKTAILDB_BASE_URL`, `COCKTAILDB_API_KEY`, `COCKTAILDB_IMAGES_BASE_URL`, `COCKTAILDB_TIMEOUT_MS`, `COCKTAILDB_RETRIES`, `COCKTAILDB_CRAWL_CONCURRENCY`, `CATALOG_TTL_MS`, `CATALOG_CACHE_CHECK_SECONDS` |
+| Catálogo        | `CATALOG_SOURCE` (`snapshot` o `cocktaildb`), `COCKTAILDB_IMAGES_BASE_URL`, `CATALOG_CACHE_CHECK_SECONDS`; solo con `cocktaildb`: `COCKTAILDB_BASE_URL`, `COCKTAILDB_API_KEY`, `COCKTAILDB_TIMEOUT_MS`, `COCKTAILDB_RETRIES`, `COCKTAILDB_CRAWL_CONCURRENCY`, `CATALOG_TTL_MS` |
 | PostgreSQL      | `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_POOL_MAX`, `MIGRATE_ON_START` |
 | Autenticación   | `JWT_SECRET` (mín. 32 caracteres), `JWT_ACCESS_TTL_SECONDS`, `REFRESH_TOKEN_TTL_DAYS` |
 | Observabilidad  | `LOG_FORMAT` (`json` o `pretty`), `LOG_LEVEL`, `METRICS_ENABLED`, `METRICS_TOKEN`, `SENTRY_DSN` |
@@ -84,7 +86,7 @@ pnpm db:studio                     # explorador visual
 
 | Contexto   | Tablas |
 | ---------- | ------ |
-| `drinks`   | `drinks`, `catalog_syncs`, `user_pantries`, `favorites`, `drink_reactions`, `taste_shares`, `cocktle_games` |
+| `drinks`   | `drinks` (sembrada por `0011_seed_drinks_catalog.sql`), `catalog_syncs`, `user_pantries`, `favorites`, `drink_reactions`, `taste_shares`, `cocktle_games` |
 | `identity` | `users`, `refresh_tokens`, `login_failures`, `api_keys`, `api_usage`, `password_resets` |
 | `billing`  | `plans` (sembrada por `0004_seed_plans.sql`), `subscriptions`, `payments` |
 | `venues`   | `venues`, `venue_inventory` |
@@ -362,7 +364,7 @@ docker compose --profile mail up -d   # además Mailpit para ver los correos: ht
 | Ambiente | Rama e imagen | Base de datos | Llaves |
 | -------- | ------------- | ------------- | ------ |
 | staging | `develop` | propia | Wompi **sandbox**; correo a Mailpit o a un proveedor de pruebas |
-| producción | `main` (`latest`) | propia, con backups | Wompi **producción**, SMTP real, clave Premium de TheCocktailDB |
+| producción | `main` (`latest`) | propia, con backups | Wompi **producción**, SMTP real |
 
 ### Checklist de producción
 
@@ -379,7 +381,7 @@ docker compose --profile mail up -d   # además Mailpit para ver los correos: ht
 | `JWT_SECRET` | aleatorio: `openssl rand -base64 48` |
 | `MAIL_TRANSPORT` | `smtp` con un proveedor real |
 | `PAYMENTS_PROVIDER` | `wompi` con las llaves de **producción** y `WOMPI_API_URL=https://production.wompi.co/v1` |
-| `COCKTAILDB_API_KEY` | la clave **Premium** (ver *Datos de TheCocktailDB*) |
+| `CATALOG_SOURCE` | `snapshot` (con `cocktaildb` haría falta la clave Premium; ver *Datos de TheCocktailDB*) |
 | `SENTRY_DSN` | recomendado |
 
 ### Backups
@@ -398,21 +400,35 @@ scripts/restore-db.sh backups/<archivo>.dump   # DESTRUCTIVO: pide escribir el n
 
 ## Datos de TheCocktailDB
 
-Las recetas e imágenes vienen de [TheCocktailDB](https://www.thecocktaildb.com/). Sus términos
-(revisados en septiembre de 2026) dicen:
+Las recetas e imágenes vienen de [TheCocktailDB](https://www.thecocktaildb.com/). api-drinks es un
+proyecto **académico**, así que el catálogo se tomó una sola vez con la clave de pruebas `1`
+(permitida para uso educativo) y quedó **congelado** en la migración
+`drizzle/0011_seed_drinks_catalog.sql`:
 
-- **Clave:** la clave de pruebas `1` es solo para desarrollo o uso educativo. Para publicar hace
-  falta la **clave Premium**, que según su [página de la API](https://www.thecocktaildb.com/api.php)
-  tiene un pago único de unos USD 10. Además quita el tope de 100 resultados por consulta y permite
-  filtrar por varios ingredientes.
+- **Qué contiene:** las 443 bebidas con sus ingredientes, medidas, instrucciones en inglés y español,
+  categorías, vasos y etiquetas, tomadas el 2026-09-25. `pnpm db:migrate` crea las tablas y las
+  siembra; no hace falta nada más para poblar la base.
+- **Sin dependencia en tiempo de ejecución:** con `CATALOG_SOURCE=snapshot` (el valor por defecto de
+  `.env.example`) la API nunca llama a TheCocktailDB. La búsqueda, el detalle, el aleatorio, el
+  coctel del día y todo el análisis salen de Postgres, y `/health/ready` no revisa TheCocktailDB.
+  `POST /v1/admin/catalog/sync` responde `409 CATALOG_SOURCE_DISABLED`.
+- **Imágenes:** las URLs apuntan a los archivos públicos de TheCocktailDB
+  (`COCKTAILDB_IMAGES_BASE_URL`), que no requieren clave. Son lo único que se sigue cargando
+  desde su sitio, y lo hace el navegador del usuario, no la API.
+- **Sincronizar de nuevo (opcional):** el adaptador `cocktaildb/` sigue ahí, detrás del puerto
+  `DrinkSource`. Con `CATALOG_SOURCE=cocktaildb` y las variables `COCKTAILDB_*`, el catálogo vuelve
+  a sincronizarse. Publicarlo así exigiría la **clave Premium** (pago único de unos USD 10 según su
+  [página de la API](https://www.thecocktaildb.com/api.php)).
+
+Lo que se mantiene en los dos modos:
+
 - **Atribución obligatoria:** hay que citarlos como fuente y enlazar a su sitio. La API lo expone en
   `attribution` (en `GET /`) y en la descripción de OpenAPI. **El frontend debe mostrar** "Datos e
   imágenes: TheCocktailDB" con el enlace.
-- **"You cannot resell our API":** no se puede revender su API sin permiso. **Riesgo para el modelo
-  de negocio:** los planes que venden *API keys* para consultar bebidas (la cuota de
-  `/me/api-keys`) podrían interpretarse como reventa. Las funciones con valor propio (carta de
-  bares, ADN, swipe, Cocktle) son más defendibles. **Antes de cobrar por API keys, pide permiso
-  por escrito a TheCocktailDB** o limita esas keys a las funciones propias.
+- **"You cannot resell our API":** por eso los datos de las bebidas son **gratis y abiertos**: no
+  piden cuenta ni API key, y ningún plan cobra por ellos. Lo que se cobra con Wompi son funciones
+  propias de api-drinks: bares, inventario, carta con costos y márgenes, y las API keys, que solo
+  dan acceso a los endpoints de bares (`/v1/venues`), nunca al catálogo (ver *Planes*).
 
 Términos completos: <https://www.thecocktaildb.com/terms_of_use.php>
 
@@ -489,7 +505,7 @@ src/<contexto>/
   infrastructure/  Adaptadores:
     http/          controllers, DTOs (esquemas zod de request y response) y guards
     persistence/   Drizzle (Postgres) e in-memory
-    cocktaildb/    cliente de TheCocktailDB (DrinkSource)
+    cocktaildb/    cliente de TheCocktailDB (DrinkSource, opcional: CATALOG_SOURCE=cocktaildb)
     security/      scrypt, JWT (jose), tokens opacos
     *.module.ts    cableado de Nest: construye los casos de uso con factories
 ```
@@ -671,7 +687,7 @@ Es una regla de dominio (`canSeeAlcohol` en `identity/domain/principal.ts`), no 
 | `premium`     | Lo de `user` + recomendaciones personalizadas según su ADN de sabor |
 | `bartender`   | Reservado para las siguientes funcionalidades |
 | `venue_owner` | Registrar bares y usar la carta inteligente (debe ser mayor de edad) |
-| `admin`       | Gestionar roles y suscripciones, resincronizar el catálogo y ver cualquier bar. Sin límites de plan. |
+| `admin`       | Gestionar roles y suscripciones, resincronizar el catálogo (con `CATALOG_SOURCE=cocktaildb`) y ver cualquier bar. Sin límites de plan. |
 
 ### Planes (freemium)
 
@@ -685,6 +701,9 @@ Los valores iniciales son:
 | business | 249.000 | ∞     | ∞                   | sí                  | 10       | 100.000        |
 
 - Quien no tiene una suscripción vigente está en `free`.
+- **Se cobra solo lo propio.** Los planes limitan funciones de api-drinks, nunca el acceso a las
+  bebidas: el catálogo es gratis y no pide cuenta ni key, y las API keys solo sirven para los
+  endpoints de bares (ver *Datos de TheCocktailDB*).
 - Pasar un límite responde `402`.
 - La cuota diaria es **por usuario**, sumando todas sus keys. Cada respuesta lleva
   `X-RateLimit-Limit`, `X-RateLimit-Remaining` y `X-RateLimit-Reset`.
@@ -837,12 +856,16 @@ intento, el frontend usa `GET /drinks/suggest`.
 
 ### Catálogo de bebidas
 
-La clave gratuita de TheCocktailDB no permite filtrar por varios ingredientes. Por eso el catálogo
-completo se sincroniza a Postgres:
-- Rastrea por letra inicial, con reintentos. Si una letra falla, se omite.
-- Se resincroniza cuando pasa `CATALOG_TTL_MS`, en segundo plano.
-- Las búsquedas y consultas por id **guardan lo que encuentran**, así que el catálogo crece con el uso.
-- Si TheCocktailDB se cae, la búsqueda responde con los datos locales.
+El catálogo completo vive en Postgres: filtros por varios ingredientes, despensa, moods, gemelos y
+ADN se calculan sobre él. Depende de `CATALOG_SOURCE`:
+
+- **`snapshot`** (por defecto): las 443 bebidas de la migración `0011`. No cambia ni llama afuera.
+  `GET /v1/admin/catalog` muestra `mode: "snapshot"` y, como `lastSyncedAt`, la fecha de la toma.
+- **`cocktaildb`**: además se sincroniza con TheCocktailDB.
+  - Rastrea por letra inicial, con reintentos. Si una letra falla, se omite.
+  - Se resincroniza cuando pasa `CATALOG_TTL_MS`, en segundo plano.
+  - Las búsquedas y consultas por id **guardan lo que encuentran**.
+  - Si TheCocktailDB se cae, la búsqueda responde con los datos locales.
 
 ## Pruebas
 
