@@ -102,7 +102,11 @@ pnpm db:studio                     # explorador visual
 - **Nadie hace push directo** a `main` ni a `develop`: todo entra por pull request.
 - **En `develop` se usa squash:** cada feature queda como un único commit con el título del PR.
 - **En `main` se usa merge commit:** cada release o hotfix queda visible como una unidad en la historia.
-- **Tags:** tras mergear un `release/*` o un `hotfix/*` a `main`, se etiqueta la versión (`git tag v3.1.0`).
+- **Tags:** tras mergear un `release/*` o un `hotfix/*` a `main`, se etiqueta la versión
+  (`git tag -a v4.1.0`) sobre el merge commit.
+- **Versiones:** siguen [versionado semántico](https://semver.org/lang/es/). Se sube la mayor si
+  hay cambios incompatibles, la menor si hay funcionalidades nuevas y el parche si solo hay
+  arreglos. Cada release se documenta en `CHANGELOG.md`.
 
 ```bash
 # feature
@@ -112,11 +116,55 @@ git switch -c feature/mi-cambio
 git push -u origin feature/mi-cambio          # abrir PR hacia develop → Squash and merge
 
 # release
-git switch -c release/3.1.0 develop           # PR hacia main (Merge) y luego hacia develop (Squash)
+git switch -c release/4.1.0 develop           # PR hacia main (Merge) y luego hacia develop (Squash)
 
 # hotfix
 git switch -c hotfix/descripcion main         # PR hacia main (Merge) y luego hacia develop (Squash)
 ```
+
+### Releases y hotfixes: por qué `release → main` y no `develop → main`
+
+La clave es **qué contiene `develop` en el momento de publicar**. `develop` nunca se detiene:
+mientras se prepara un release, se siguen mergeando features. La rama `release/*` existe para
+**congelar** una foto de `develop`. Desde que se crea, lo nuevo entra a `develop` pero no al release.
+
+```
+develop:  A ── B ── C ─────── D ── E        ← D y E llegan después (a medias, sin probar)
+                     \
+release/4.1.0:        C ── fix              ← congelado en C; solo arreglos de estabilización
+                             \
+main:                         ● Release 4.1.0   (C + fix, exactamente lo probado)
+```
+
+- **`release → main` (correcto):** a producción llega exactamente lo congelado y probado (C más sus
+  arreglos). D y E se quedan en `develop` para el próximo release.
+- **`release → develop → main` (incorrecto):** el release se mezclaría con D y E, y el PR
+  `develop → main` llevaría a producción funcionalidades que nadie revisó para esta versión.
+- **Después, `release → develop`:** los arreglos hechos en la rama de release (el "fix" del
+  diagrama, el cambio de versión, el CHANGELOG) vuelven a `develop`. Si no, el próximo release
+  saldría sin ellos y el bug reaparecería.
+- **El orden entre los dos PR** no importa técnicamente, porque ambos salen de la misma rama. Va
+  `main` primero porque publicar es el objetivo: un conflicto en el PR a `develop` no debe retrasar
+  el release.
+- **`hotfix/*`** sigue la misma lógica: sale de `main`, entra a `main` (producción) y vuelve a
+  `develop` para que el arreglo no se pierda en la próxima versión.
+
+**Pasos para publicar un release:**
+
+1. `git switch -c release/X.Y.Z develop`. Sube la versión (`package.json` y `APP_VERSION`), escribe
+   la sección en `CHANGELOG.md` y corre `pnpm openapi:generate`, porque la versión va en el
+   contrato. Haz el commit y el push.
+2. **Abre los dos PR antes de mergear ninguno:** `release/X.Y.Z → main` con el título
+   `Release X.Y.Z`, y `release/X.Y.Z → develop` con el título `chore: release X.Y.Z`. El borrado
+   automático de ramas podría eliminar la rama al mergear el primero; si pasa, el PR mergeado
+   tiene el botón *Restore branch*.
+3. Mergea el PR a `main` con **Merge commit** y luego el de `develop` con **Squash**.
+4. Etiqueta el merge commit de `main` y súbelo:
+   ```bash
+   git fetch && git tag -a vX.Y.Z origin/main -m "api-drinks X.Y.Z" && git push origin vX.Y.Z
+   ```
+5. Opcional: en GitHub, *Releases → Draft a new release*, elige el tag y pega la sección del
+   CHANGELOG. Al entrar en `main`, el CD ya publicó la imagen con el tag `latest`.
 
 ### Actualizar una rama: rebase
 
